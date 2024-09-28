@@ -1,0 +1,21 @@
+{
+  "name": "env-validator",
+  "version": "1.0.0",
+  "description": "",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "prepublish": "npm run build"
+  },
+  "keywords": [
+    "env",
+    "validator",
+    "Express"
+  ],
+  "author": "Emmanuel Nwankwo",
+  "license": "ISC",
+  "devDependencies": {
+    "typescript": "^5.6.2"
+  }
+}
