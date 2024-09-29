@@ -2,20 +2,39 @@
   "name": "env-validator",
   "version": "1.0.0",
   "description": "",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "import": "./dist/index.mjs",
+    "require": "./dist/index.cjs"
+  },
   "scripts": {
-    "build": "tsc",
+    "prebuild": "rm -rf dist",
+    "build": "tsc && mv dist/index.js dist/index.cjs && cp dist/index.cjs dist/index.mjs",
+    "postbuild": "tsx build-helper.ts",
     "prepublish": "npm run build"
   },
   "keywords": [
     "env",
     "validator",
-    "Express"
+    "express",
+    "nestjs",
+    "process.env",
+    "environment"
+  ],
+  "files": [
+    "dist",
+    "README.md"
   ],
   "author": "Emmanuel Nwankwo",
-  "license": "ISC",
+  "license": "MIT",
   "devDependencies": {
+    "@types/node": "^22.7.4",
+    "@typescript-eslint/eslint-plugin": "^8.7.0",
+    "@typescript-eslint/parser": "^8.7.0",
+    "eslint": "^9.11.1",
+    "tsx": "^4.19.1",
     "typescript": "^5.6.2"
   }
 }
