@@ -1,13 +1,25 @@
 {
     "compilerOptions": {
-        "module": "CommonJS",
-        "target": "ES6",
+        "esModuleInterop": true,
+        "module": "esnext",
+        "moduleResolution": "node",
+        "noFallthroughCasesInSwitch": true,
+        "noImplicitReturns": true,
+        "noUnusedLocals": true,
+        "noUnusedParameters": true,
+        "noUncheckedIndexedAccess": true,
+        "strict": true,
+        "target": "es2022",
         "outDir": "./dist",
         "declaration": true,
-        "strict": true,
-        "esModuleInterop": true
+        "declarationDir": "./dist"
     },
     "include": [
         "src/**/*"
+    ],
+    "exclude": [
+        "node_modules",
+        "**/*.spec.ts",
+        "dist"
     ]
 }
