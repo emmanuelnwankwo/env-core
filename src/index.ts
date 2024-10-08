@@ -1,7 +1,23 @@
-
+import fs from 'fs';
+import path from 'path';
+import dotenv from 'dotenv';
 import { EnvSchema } from './types';
 
-const validateEnv = (schema: EnvSchema): Record<string, any> => {
+const validateEnv = (schema: EnvSchema, envFile: string = '.env'): Record<string, any> => {
+    const envPath = path.resolve(process.cwd(), envFile);
+    if (!fs.existsSync(envPath)) {
+        throw new Error(`Environment file not found: ${envPath}`);
+    }
+
+    try {
+        const result = dotenv.config({ path: envPath });
+        if (result.error) {
+            throw result.error;
+        }
+    } catch (error) {
+        throw new Error('dotenv package is missing in your project. If installed, ensure it is configured correctly.');
+    }
+
     const envConfig: Record<string, any> = process.env;
     const missingFields: string[] = [];
     const wrongTypes: string[] = [];
@@ -33,7 +49,7 @@ const validateEnv = (schema: EnvSchema): Record<string, any> => {
         throw new Error(errorMessage);
     }
 
-    return envConfig; // Return validated config
+    return envConfig;
 };
 
 export { validateEnv }
