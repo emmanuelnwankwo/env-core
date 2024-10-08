@@ -9,6 +9,14 @@
     "import": "./dist/index.mjs",
     "require": "./dist/index.cjs"
   },
+  "homepage": "https://github.com/emmanuelnwankwo/env-validation",
+  "bugs": {
+    "url": "https://github.com/emmanuelnwankwo/env-validation/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/emmanuelnwankwo/env-validation.git"
+  },
   "scripts": {
     "prebuild": "rm -rf dist",
     "build": "tsc && mv dist/index.js dist/index.cjs && cp dist/index.cjs dist/index.mjs",
@@ -33,6 +41,7 @@
     "@types/node": "^22.7.4",
     "@typescript-eslint/eslint-plugin": "^8.7.0",
     "@typescript-eslint/parser": "^8.7.0",
+    "dotenv": "^16.4.5",
     "eslint": "^9.11.1",
     "tsx": "^4.19.1",
     "typescript": "^5.6.2"
