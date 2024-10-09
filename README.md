@@ -1,12 +1,13 @@
 # env-core
 
-`env-core` is a lightweight, framework-agnostic environment variable validation library for Node.js projects. It ensures that the environment variables in your .env file match the expected schema and types. The package supports both JavaScript and TypeScript projects, and works seamlessly with Express.js and NestJS.
+`env-core` is a lightweight, type-safe environment variable validation library for Node.js projects. It ensures that your environment variables match the expected schema and types, providing robust validation for both JavaScript and TypeScript projects.
 
 ## Features
-- Validates environment variables based on a schema you define.
-- Supports types like `String`, `Number`, and `Boolean`.
-- Throws user-friendly errors if validation fails, preventing the app from starting.
-- Works with both Express.js and NestJS projects.
+- Type-safe environment variable validation
+- Supports `String`, `Number`, and `Boolean` types.
+- Optional variables with default values
+- Detailed error messages for validation failures
+- Compatible with Express.js, NestJS, and other Node.js frameworks
 - Minimal dependencies.
 
 ## Installation
@@ -34,18 +35,28 @@ Ensure the environment variables are validated before the Express server starts.
 // src/index.js
 
 const express = require('express');
-const { validateEnv } = require('env-core'); // Import the validator
+const { validateEnv } = require('env-core'); // Import the env-core
 require('dotenv').config(); // Load environment variables from .env file
 
 // Define the schema for the required environment variables
 const envSchema = {
-    PORT: Number,
-    NODE_ENV: String,
-    DEBUG: Boolean,
+  PORT: Number,
+  NODE_ENV: String,
+  DEBUG: {
+    type: Boolean,
+    default: false,
+  },
+  HOST: {
+    type: String,
+    default: '0.0.0.0',
+    required: false,
+  },
 };
 
-// Validate the environment variables
-validateEnv(envSchema);
+// Validate the environment variable
+const env = validateEnv(envSchema);
+// test.env overrides .env file path
+// const env = validateEnv(envSchema, 'test.env');
 
 const app = express();
 
@@ -53,9 +64,9 @@ app.get('/', (req, res) => {
     res.send('Hello World!');
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+// Use env output
+app.listen(env.PORT, () => {
+    console.log(`Server is running on port ${env.PORT}`);
 });
 
 ```
@@ -83,7 +94,7 @@ NestJS allows for environment variable validation during module initialization.
 
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { validateEnv } from 'env-core'; // Import the validator
+import { validateEnv } from 'env-core'; // Import the env-core
 require('dotenv').config(); // Load environment variables from .env file
 
 const envSchema = {
@@ -96,7 +107,7 @@ const envSchema = {
   imports: [
     ConfigModule.forRoot({
       isGlobal: true, // Make the config globally available
-      envFilePath: process.env.NODE_ENV === 'test' ? '.env.test' : '.env',
+      envFilePath: process.env.NODE_ENV === 'test' ? 'test.env' : '.env',
       validate: validateEnv(envSchema), // Pass the validateEnv function
     }),
   ],
@@ -128,8 +139,9 @@ If a required environment variable is missing or has an incorrect type, the pack
 #### Example Error Message:
 ```yml
 Environment validation failed:
-Missing fields: PORT
-Wrong types: DEBUG should be a boolean
+- Missing required field: NODE_ENV
+- Missing required field: DEBUG
+- DEBUG should be a boolean
 ```
 
 ## Contributing
