@@ -1,6 +1,6 @@
 {
   "name": "env-core",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Env Core provide methods for validating and accessing environment variables.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -10,7 +10,8 @@
   },
   "homepage": "https://github.com/emmanuelnwankwo/env-core",
   "bugs": {
-    "url": "https://github.com/emmanuelnwankwo/env-core/issues"
+    "url": "https://github.com/emmanuelnwankwo/env-core/issues",
+    "email": "noblenec@gmail.com"
   },
   "repository": {
     "type": "git",
