@@ -1,4 +1,4 @@
-# env-validation
+# env-core
 
 `env-core` is a lightweight, framework-agnostic environment variable validation library for Node.js projects. It ensures that the environment variables in your .env file match the expected schema and types. The package supports both JavaScript and TypeScript projects, and works seamlessly with Express.js and NestJS.
 
