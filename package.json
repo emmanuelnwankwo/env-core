@@ -1,20 +1,20 @@
 {
-  "name": "env-validator",
+  "name": "env-core",
   "version": "1.0.0",
-  "description": "",
+  "description": "Env Core provide methods for validating and accessing environment variables.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
     "import": "./dist/index.d.ts",
     "require": "./dist/index.js"
   },
-  "homepage": "https://github.com/emmanuelnwankwo/env-validation",
+  "homepage": "https://github.com/emmanuelnwankwo/env-core",
   "bugs": {
-    "url": "https://github.com/emmanuelnwankwo/env-validation/issues"
+    "url": "https://github.com/emmanuelnwankwo/env-core/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git://github.com/emmanuelnwankwo/env-validation.git"
+    "url": "git://github.com/emmanuelnwankwo/env-core.git"
   },
   "scripts": {
     "prebuild": "rm -rf dist",
