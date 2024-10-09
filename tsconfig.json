@@ -1,18 +1,18 @@
 {
     "compilerOptions": {
-        "esModuleInterop": true,
-        "module": "esnext",
-        "moduleResolution": "node",
-        "noFallthroughCasesInSwitch": true,
-        "noImplicitReturns": true,
-        "noUnusedLocals": true,
-        "noUnusedParameters": true,
-        "noUncheckedIndexedAccess": true,
-        "strict": true,
-        "target": "es2022",
-        "outDir": "./dist",
+        "target": "es2018",
+        "module": "commonjs",
         "declaration": true,
-        "declarationDir": "./dist"
+        "outDir": "./dist",
+        "strict": true,
+        "esModuleInterop": true,
+        "skipLibCheck": true,
+        "forceConsistentCasingInFileNames": true,
+        "moduleResolution": "node",
+        "resolveJsonModule": true,
+        "types": [
+            "node"
+        ]
     },
     "include": [
         "src/**/*"
