@@ -1,7 +1,7 @@
 {
   "name": "env-core",
   "version": "1.0.1",
-  "description": "Env Core provide methods for validating and accessing environment variables.",
+  "description": "Library for validating and accessing environment variables.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
@@ -18,9 +18,9 @@
     "url": "git://github.com/emmanuelnwankwo/env-core.git"
   },
   "scripts": {
-    "prebuild": "rm -rf dist",
     "build": "tsc",
-    "prepublish": "npm run build"
+    "prepublish": "npm run build",
+    "test": "jest"
   },
   "keywords": [
     "env",
@@ -34,14 +34,17 @@
     "dist",
     "README.md"
   ],
-  "author": "Emmanuel Nwankwo",
+  "author": "Emmanuel Nwankwo <noblenec@gmail.com>",
   "license": "MIT",
   "devDependencies": {
+    "@types/jest": "^29.5.13",
     "@types/node": "^22.7.4",
     "@typescript-eslint/eslint-plugin": "^8.7.0",
     "@typescript-eslint/parser": "^8.7.0",
     "dotenv": "^16.4.5",
     "eslint": "^9.11.1",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.5",
     "tsx": "^4.19.1",
     "typescript": "^5.6.2"
   },
