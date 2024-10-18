@@ -15,5 +15,14 @@
         "@typescript-eslint"
     ],
     "rules": {
-    }
+        "@typescript-eslint/no-unnecessary-condition": "error",
+        "@typescript-eslint/consistent-type-exports": "error",
+        "@typescript-eslint/consistent-type-imports": "error",
+        "@typescript-eslint/no-confusing-void-expression": "error"
+    },
+    "ignorePatterns": [
+        "node_modules",
+        "dist",
+        "coverage"
+    ]
 }
