@@ -1,6 +1,6 @@
 # Env Core
 
-`env-core` is a lightweight, type-safe environment variable validation library for Node.js projects. It ensures that your environment variables match the expected schema and types, providing robust validation for both JavaScript and TypeScript projects.
+`env-core` is a lightweight, type-safe environment variable validation library for Node.js projects.
 
 ## Features
 - Type-safe environment variable validation
@@ -54,9 +54,10 @@ const envSchema = {
 };
 
 // Validate the environment variable
+// Option 1
 const env = validateEnv(envSchema);
-// test.env overrides .env file path
-// const env = validateEnv(envSchema, 'test.env');
+// Option 2: uses test.env file instead of .env
+const env = validateEnv(envSchema, 'test.env'); 
 
 const app = express();
 
@@ -115,13 +116,7 @@ const envSchema = {
   providers: [],
 })
 export class AppModule {}
-```
-Example `.env` File
-```bash
-PORT=3000
-NODE_ENV=development
-DEBUG=true
-```
+
 If the validation fails, NestJS will not initialize, and a descriptive error message will be printed.
 
 ## API Reference
