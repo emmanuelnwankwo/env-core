@@ -4,14 +4,15 @@
 
 ## Features
 - Type-safe environment variable validation
-- Supports `String`, `Number`, and `Boolean` types.
+- Supports `String`, `Number`, and `Boolean` types
 - Optional variables with default values
 - Detailed error messages for validation failures
 - Compatible with Express.js, NestJS, and other Node.js frameworks
-- Minimal dependencies.
+- Minimal dependencies
+- Works with both ESM (`import`) and CommonJS (`require`)
 
 ## Installation
-First, install the env-core package:
+Install `env-core` package:
 ```bash
 npm install env-core
 ```
@@ -19,27 +20,14 @@ Since the package relies on environment variables, you should also have the dote
 ```bash
 npm install dotenv
 ```
-Ensure you load your environment variables from `.env` before using the validator.
 
 ## Usage
-### 1. Using `env-core` in an Express.js project
-Here’s an example of how to integrate env-core into an Express.js project:
-
-#### Step 1: Define the validation schema
-Define a schema for the environment variables and pass it to the validateEnv function. The schema specifies the expected type for each variable (Number, String, Boolean).
-
-#### Step 2: Call `validateEnv` during server setup
-Ensure the environment variables are validated before the Express server starts.
-
+### Define the Environment Schema
+First, define a schema for your environment variables:
 ```javascript
-// src/index.js
+// src/envSchema.js
 
-const express = require('express');
-const { validateEnv } = require('env-core'); // Import the env-core
-require('dotenv').config(); // Load environment variables from .env file
-
-// Define the schema for the required environment variables
-const envSchema = {
+export const envSchema = {
   PORT: Number,
   NODE_ENV: String,
   DEBUG: {
@@ -53,11 +41,34 @@ const envSchema = {
   },
 };
 
-// Validate the environment variable
-// Option 1
-const env = validateEnv(envSchema);
-// Option 2: uses test.env file instead of .env
-const env = validateEnv(envSchema, 'test.env'); 
+```
+
+### EnvSchema Format
+The `envSchema` object defines the structure and validation rules for your environment variables. Each key in the object represents an environment variable, and the value defines its type and optional settings.
+
+| Format | Description | Example |
+|--------|-------------|---------|
+| `KEY: Type` | Simple type definition (required by default) | `PORT: Number` |
+| `KEY: { type: Type, default: value }` | Type with default value (optional) | `DEBUG: { type: Boolean, default: false }` |
+| `KEY: { type: Type, required: boolean }` | Explicitly set if required | `NODE_ENV: { type: String, required: false }` |
+
+Supported types: `String`, `Number`, `Boolean`
+
+## Integration Examples
+
+### Express.js Integration
+Call the `validateEnv` function with your schema to validate the environment variables before starting your server.
+```javascript
+// src/index.js
+
+import express from 'express';
+import { validateEnv } from 'env-core';
+import { envSchema } from './envSchema.js'; // Import the validation schema
+import 'dotenv/config';
+
+// Validate the environment variables using the schema
+const env = validateEnv(envSchema); // Option 1: Validates using .env
+// const env = validateEnv(envSchema, 'test.env'); // Option 2: Validates using a custom env file
 
 const app = express();
 
@@ -65,78 +76,64 @@ app.get('/', (req, res) => {
     res.send('Hello World!');
 });
 
-// Use env output
 app.listen(env.PORT, () => {
     console.log(`Server is running on port ${env.PORT}`);
 });
-
 ```
-
-Example `.env` File
-```bash
-PORT=3000
-NODE_ENV=development
-DEBUG=true
-```
-
 If any environment variable is missing or has the wrong type, the app will not start, and a detailed error message will be displayed.
 
-### 2. Using env-core in a NestJS project - `Not working when passed on validate yet` It'll be fix in 1.1.0 version
-In a **NestJS** project, you can integrate the `validateEnv` function into the `ConfigModule` by passing it to the `validate` option in `ConfigModule.forRoot()`.
-
-#### Step 1: Define the validation schema
-Define the schema for the environment variables in your app.module.ts.
-
-#### Step 2: Pass `validateEnv` to `ConfigModule.forRoot()`
-NestJS allows for environment variable validation during module initialization.
+### NestJS Integration (*Upcoming feature - currently does not work with ConfigModule)
+`env-core` can be integrated into a NestJS project to validate environment variables during the module initialization process. 
 
 ```typescript
 // src/app.module.ts
 
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { validateEnv } from 'env-core'; // Import the env-core
-require('dotenv').config(); // Load environment variables from .env file
-
-const envSchema = {
-  PORT: Number,
-  NODE_ENV: String,
-  DEBUG: Boolean,
-};
+import { validateEnv } from 'env-core';
+import 'dotenv/config';
+import { envSchema } from './envSchema.js'; // Import the validation schema
 
 @Module({
   imports: [
     ConfigModule.forRoot({
-      isGlobal: true, // Make the config globally available
-      envFilePath: process.env.NODE_ENV === 'test' ? 'test.env' : '.env',
-      validate: validateEnv(envSchema), // Pass the validateEnv function
+      isGlobal: true,
+      validate: validateEnv(envSchema), // Validate environment variables
     }),
   ],
   controllers: [],
   providers: [],
 })
 export class AppModule {}
-
+```
 If the validation fails, NestJS will not initialize, and a descriptive error message will be printed.
 
 ## API Reference
-`validateEnv(schema: EnvSchema)`
+`validateEnv(schema: EnvSchema, envPath?: string)`
 - schema: An object that defines the required environment variables and their types. Supported types are String, Number, and Boolean.
+- `envPath` (optional): A string specifying a custom .env file to load (e.g., 'test.env'). Defaults to .env.
+
 #### Returns
 A function that takes the envConfig (defaults to process.env) and validates it against the schema. If validation passes, the function returns the validated config. If validation fails, an error is thrown.
 
 ## Error Handling
-If a required environment variable is missing or has an incorrect type, the package will throw an error with a detailed message listing:
+If validation fails, the package throws an error with detailed information, including:
+- Missing required environment variables
+- Environment variables with incorrect types
 
-- The missing environment variables.
-- Variables with incorrect types.
-
-#### Example Error Message:
+### Example Error Message:
 ```yml
 Environment validation failed:
 - Missing required field: NODE_ENV
 - Missing required field: DEBUG
 - DEBUG should be a boolean
+```
+
+## Example of .env or custom env file
+```bash
+PORT=3000
+NODE_ENV=development
+DEBUG=true
 ```
 
 ## Contributing
