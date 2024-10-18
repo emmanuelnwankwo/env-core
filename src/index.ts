@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import dotenv from 'dotenv';
-import { ValidatedEnv, EnvSchema, EnvSchemaItem } from './types';
+import type { ValidatedEnv, EnvSchema, EnvSchemaItem } from './types';
 
 /**
  * Validates and loads environment variables based on a provided schema.
@@ -17,18 +17,18 @@ import { ValidatedEnv, EnvSchema, EnvSchemaItem } from './types';
  * @example
  * const env = validateEnv({
  *   PORT: Number,
- *   HOST: String,
+ *   NODE_ENV: String,
  *   DEBUG: { type: Boolean, default: false }
  * });
  * 
  * console.log(env.PORT); // number
- * console.log(env.HOST); // string
+ * console.log(env.NODE_ENV); // string
  * console.log(env.DEBUG); // boolean
  */
 const validateEnv = <T extends EnvSchema>(schema: T, envFile: string = '.env'): ValidatedEnv<T> => {
     const envPath = path.resolve(process.cwd(), envFile);
     if (!fs.existsSync(envPath)) {
-        console.error(`Environment file not found: ${envPath}`);
+        console.error(`Environment file not found: ${envFile}`);
         process.exit(1);
     }
 
@@ -90,7 +90,7 @@ const validateEnv = <T extends EnvSchema>(schema: T, envFile: string = '.env'): 
 
     if (errors.length) {
         console.error('Environment validation failed:');
-        errors.forEach(error => console.error(`- ${error}`));
+        errors.forEach(error => { console.error(`- ${error}`); });
         process.exit(1);
     }
 

@@ -23,4 +23,4 @@ type ValidatedEnv<T extends EnvSchema> = {
     [K in keyof T]: InferType<T[K]>
 };
 
-export { ValidatedEnv, EnvSchema, EnvSchemaItem };
+export type { ValidatedEnv, EnvSchema, EnvSchemaItem };
