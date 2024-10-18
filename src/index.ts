@@ -36,7 +36,7 @@ const validateEnv = <T extends EnvSchema>(schema: T, envFile: string = '.env'): 
     try {
         const result = dotenv.config({ path: envPath });
         if (result.error) {
-            console.error(`Failed to load .env file: ${result.error.message}`);
+            console.error(`Failed to load ${envFile} file: ${result.error.message}`);
             process.exit(1);
         }
         env = result.parsed as NodeJS.ProcessEnv;
