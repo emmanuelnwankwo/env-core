@@ -8,6 +8,7 @@ jest.mock('fs');
 jest.mock('dotenv');
 
 describe('validateEnv', () => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const mockExit = jest.spyOn(process, 'exit').mockImplementation((code?: number | string | null | undefined) => { throw new Error(`Process exit with code ${code}`); });
   const mockConsoleError = jest.spyOn(console, 'error').mockImplementation(() => { });
   const mockConsoleWarn = jest.spyOn(console, 'warn').mockImplementation(() => { });
@@ -22,14 +23,14 @@ describe('validateEnv', () => {
     (dotenv.config as jest.Mock).mockReturnValue({
       parsed: {
         PORT: '3000',
-        HOST: 'localhost',
+        NODE_ENV: 'development',
         DEBUG: 'true',
       },
     });
 
     const schema = {
       PORT: Number,
-      HOST: String,
+      NODE_ENV: String,
       DEBUG: Boolean,
     };
 
@@ -37,7 +38,7 @@ describe('validateEnv', () => {
 
     expect(result).toEqual({
       PORT: 3000,
-      HOST: 'localhost',
+      NODE_ENV: 'development',
       DEBUG: true,
     });
   });
@@ -51,7 +52,7 @@ describe('validateEnv', () => {
 
     const schema = {
       PORT: Number,
-      HOST: { type: String, default: 'localhost', required: false },
+      NODE_ENV: { type: String, default: 'development', required: false },
       DEBUG: { type: Boolean, default: false, required: false },
     };
 
@@ -59,7 +60,7 @@ describe('validateEnv', () => {
 
     expect(result).toEqual({
       PORT: 3000,
-      HOST: 'localhost',
+      NODE_ENV: 'development',
       DEBUG: false,
     });
   });
@@ -148,6 +149,7 @@ describe('validateEnv', () => {
     });
 
     const schema = {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       UNSUPPORTED: Date as any,
     };
 
