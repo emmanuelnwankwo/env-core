@@ -23,7 +23,40 @@ npm install dotenv
 
 ## Usage
 ### Define the Environment Schema
-First, define a schema for your environment variables:
+First, define a schema for your environment variables. Here are three different use cases for how you can set up your `envSchema`:
+#### Use Case 1: Simple Types
+Environment variables are defined using simple types without additional options.
+```javascript
+// src/envSchema.js
+
+export const envSchema = {
+  PORT: Number,
+  NODE_ENV: String,
+  DEBUG: Boolean,
+  HOST: String,
+};
+```
+
+#### Use Case 2: Configuration Options
+You can include default values and exclude requirement check for specific environment variables.
+```javascript
+// src/envSchema.js
+
+export const envSchema = {
+  DEBUG: { 
+    type: Boolean,
+    default: false,
+  },
+  HOST: {
+    type: String,
+    default: '0.0.0.0',
+    required: false,
+  },
+};
+```
+
+#### Use Case 3: Mixed Configuration
+You use a mix of simple types and configuration options for both flexibility and control.
 ```javascript
 // src/envSchema.js
 
@@ -40,7 +73,6 @@ export const envSchema = {
     required: false,
   },
 };
-
 ```
 
 ### EnvSchema Format
