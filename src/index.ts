@@ -10,7 +10,7 @@ import type { ValidatedEnv, EnvSchema, EnvSchemaItem } from './types';
  * @param {T} schema - An object describing the expected environment variables and their types.
  *                     Each key in the schema can be either a constructor (String, Number, Boolean)
  *                     or an object with `type`, `required`, and `default` properties.
- * @param {string} [envFile='.env'] - The name of the environment file to load. Defaults to '.env'.
+ * @param {string} [envFile] - The name of the environment file to load. Defaults to '.env' if not provided.
  * 
  * @returns {ValidatedEnv<T>} An object containing the validated environment variables.
  * 
@@ -21,28 +21,20 @@ import type { ValidatedEnv, EnvSchema, EnvSchemaItem } from './types';
  *   DEBUG: { type: Boolean, default: false }
  * });
  * 
- * console.log(env.PORT); // number
- * console.log(env.NODE_ENV); // string
- * console.log(env.DEBUG); // boolean
  */
-const validateEnv = <T extends EnvSchema>(schema: T, envFile: string = '.env'): ValidatedEnv<T> => {
-    const envPath = path.resolve(process.cwd(), envFile);
-    if (!fs.existsSync(envPath)) {
-        console.error(`Environment file not found: ${envFile}`);
-        process.exit(1);
-    }
+const validateEnv = <T extends EnvSchema>(schema: T, envFile?: string): ValidatedEnv<T> => {
+    const fileToLoad = envFile || '.env';
+    let env: NodeJS.ProcessEnv = process.env;
 
-    let env: NodeJS.ProcessEnv;
-    try {
+    const envPath = path.resolve(process.cwd(), fileToLoad); // Resolve the path of the environment file
+
+    if (fs.existsSync(envPath)) {
         const result = dotenv.config({ path: envPath });
         if (result.error) {
-            console.error(`Failed to load ${envFile} file: ${result.error.message}`);
-            process.exit(1);
+            console.error(`Error loading ${fileToLoad}: ${result.error.message}`);
+        } else {
+            env = { ...process.env, ...result.parsed }; // Merge existing process.env with loaded env variables
         }
-        env = result.parsed as NodeJS.ProcessEnv;
-    } catch (error) {
-        console.warn('dotenv is not installed or not configured correctly. Using process.env directly.');
-        env = process.env;
     }
 
     const envConfig = {} as ValidatedEnv<T>;
