@@ -1,178 +1,160 @@
 import fs from 'fs';
+import path from 'path';
 import dotenv from 'dotenv';
-import { jest, describe, it, expect, beforeEach } from '@jest/globals';
+import { jest, describe, it, expect, beforeEach, afterAll } from '@jest/globals';
 import { validateEnv } from '../src/index';
 
 
 jest.mock('fs');
 jest.mock('dotenv');
+jest.mock('path', () => ({
+  resolve: jest.fn()
+}));
 
 describe('validateEnv', () => {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const mockExit = jest.spyOn(process, 'exit').mockImplementation((code?: number | string | null | undefined) => { throw new Error(`Process exit with code ${code}`); });
+  const originalEnv: NodeJS.ProcessEnv = process.env;
   const mockConsoleError = jest.spyOn(console, 'error').mockImplementation(() => { });
-  const mockConsoleWarn = jest.spyOn(console, 'warn').mockImplementation(() => { });
-
+  
   beforeEach(() => {
     jest.clearAllMocks();
+    process.env = { ...originalEnv }; // Reset environment
+    process.exit = jest.fn() as any;
+  });
+
+  afterAll(() => {
+    process.env = originalEnv; // Restore original environment
+  });
+
+  it('should load variables from .env file when present', () => {
+    const mockEnvPath = '/test/path/.env';
+    (path.resolve as jest.Mock).mockReturnValue(mockEnvPath);
     (fs.existsSync as jest.Mock).mockReturnValue(true);
-    (dotenv.config as jest.Mock).mockReturnValue({ parsed: {} });
-  });
-
-  it('should validate and return correct environment variables', () => {
     (dotenv.config as jest.Mock).mockReturnValue({
-      parsed: {
-        PORT: '3000',
-        NODE_ENV: 'development',
-        DEBUG: 'true',
-      },
+      parsed: { PORT: '3000', NODE_ENV: 'production' },
     });
 
-    const schema = {
-      PORT: Number,
-      NODE_ENV: String,
-      DEBUG: Boolean,
-    };
-
+    const schema = { PORT: Number, NODE_ENV: String };
     const result = validateEnv(schema);
 
-    expect(result).toEqual({
-      PORT: 3000,
-      NODE_ENV: 'development',
-      DEBUG: true,
-    });
+    expect(result).toEqual({ PORT: 3000, NODE_ENV: 'production' });
+    expect(dotenv.config).toHaveBeenCalledWith({ path: mockEnvPath });
   });
 
-  it('should use default values when provided and env variable is missing', () => {
-    (dotenv.config as jest.Mock).mockReturnValue({
-      parsed: {
-        PORT: '3000',
-      },
-    });
+  it('should throw an error if dotenv.config fails to load .env file and continue with process.env', () => {
+    (fs.existsSync as jest.Mock).mockReturnValue(true);
+    (dotenv.config as jest.Mock).mockReturnValue({ error: new Error('Mocked dotenv error') });
+    const mockEnvFile = 'test.env';
 
-    const schema = {
-      PORT: Number,
-      NODE_ENV: { type: String, default: 'development', required: false },
-      DEBUG: { type: Boolean, default: false, required: false },
-    };
+    const schema = { PORT: Number };
 
-    const result = validateEnv(schema);
+    validateEnv(schema, mockEnvFile);
 
-    expect(result).toEqual({
-      PORT: 3000,
-      NODE_ENV: 'development',
-      DEBUG: false,
-    });
-  });
-
-  it('should throw an error when required field is missing', () => {
-    (dotenv.config as jest.Mock).mockReturnValue({
-      parsed: {},
-    });
-
-    const schema = {
-      PORT: Number,
-    };
-
-    expect(() => validateEnv(schema)).toThrow('Process exit with code 1');
+    expect(mockConsoleError).toHaveBeenCalledWith(`Error loading ${mockEnvFile}: Mocked dotenv error`);
     expect(mockConsoleError).toHaveBeenCalledWith('Environment validation failed:');
-    expect(mockConsoleError).toHaveBeenCalledWith('- Missing required field: PORT');
   });
 
-  it('should throw an error when field type is invalid', () => {
-    (dotenv.config as jest.Mock).mockReturnValue({
-      parsed: {
-        PORT: 'not-number',
-        DEBUG: 'not-boolean',
-      },
-    });
-
-    const schema = {
-      PORT: Number,
-      DEBUG: Boolean,
-    };
-
-    expect(() => validateEnv(schema)).toThrow('Process exit with code 1');
-    expect(mockConsoleError).toHaveBeenCalledWith('Environment validation failed:');
-    expect(mockConsoleError).toHaveBeenCalledWith('- PORT should be a number');
-    expect(mockConsoleError).toHaveBeenCalledWith('- DEBUG should be a boolean');
-  });
-
-  it('should throw an error when .env file is not found', () => {
+  it('should use process.env if .env file is missing and return correct environment variables', () => {
     (fs.existsSync as jest.Mock).mockReturnValue(false);
 
-    const schema = {
-      PORT: Number,
-    };
+    process.env.PORT = '4000';
+    process.env.NODE_ENV = 'development';
 
-    expect(() => validateEnv(schema)).toThrow('Process exit with code 1');
-    expect(mockConsoleError).toHaveBeenCalledWith(expect.stringContaining('Environment file not found:'));
+    const schema = { PORT: Number, NODE_ENV: String };
+    const result = validateEnv(schema);
+
+    expect(result).toEqual({ PORT: 4000, NODE_ENV: 'development' });
   });
 
-  it('should throw an error when dotenv fails to parse .env file', () => {
-    (dotenv.config as jest.Mock).mockReturnValue({
-      error: new Error('Failed to parse'),
-    });
+  it('should validate required fields and exit process if missing', () => {
+    const mockEnvPath = '/test/path/.env';
+    (path.resolve as jest.Mock).mockReturnValue(mockEnvPath);
+    (fs.existsSync as jest.Mock).mockReturnValue(true);
+    (dotenv.config as jest.Mock).mockReturnValue({ parsed: {} });
+    process.env = {};
 
-    const schema = {
-      PORT: Number,
-    };
+    const schema = { PORT: Number, NODE_ENV: String };
 
-    expect(() => validateEnv(schema)).toThrow('Process exit with code 1');
-    expect(mockConsoleError).toHaveBeenCalledWith('Failed to load .env file: Failed to parse');
+    validateEnv(schema);
+
+    expect(mockConsoleError).toHaveBeenCalledWith('Environment validation failed:');
+    expect(mockConsoleError).toHaveBeenCalledWith('- Missing required field: PORT');
+    expect(mockConsoleError).toHaveBeenCalledWith('- Missing required field: NODE_ENV');
+    expect(process.exit).toHaveBeenCalledWith(1);
   });
 
-  it('should use process.env when dotenv is not available', () => {
-    (dotenv.config as jest.Mock).mockImplementation(() => {
-      throw new Error('dotenv not available');
-    });
-
-    process.env.PORT = '3000';
-
+  it('should use default values if available when environment variable is missing', () => {
     const schema = {
-      PORT: Number,
+      PORT: { type: Number, required: false, default: 8080 },
+      NODE_ENV: String,
+      DEBUG: { type: Boolean, required: false, default: false },
     };
+
+    process.env.NODE_ENV = 'production';
 
     const result = validateEnv(schema);
 
-    expect(result).toEqual({
-      PORT: 3000,
-    });
-    expect(mockConsoleWarn).toHaveBeenCalledWith('dotenv is not installed or not configured correctly. Using process.env directly.');
+    expect(result).toEqual({ PORT: 8080, NODE_ENV: 'production', DEBUG: false });
+  });
+
+  it('should throw an error for invalid number type', () => {
+    process.env.PORT = 'invalid_number';
+    process.env.NODE_ENV = 'production';
+
+    const schema = { PORT: Number, NODE_ENV: String };
+
+    validateEnv(schema);
+
+    expect(console.error).toHaveBeenCalledWith('Environment validation failed:');
+    expect(console.error).toHaveBeenCalledWith('- PORT should be a number');
+    expect(process.exit).toHaveBeenCalledWith(1);
+  });
+
+  it('should validate boolean environment variables correctly', () => {
+    process.env.DEBUG = 'true';
+    process.env.NODE_ENV = 'development';
+
+    const schema = { DEBUG: Boolean, NODE_ENV: String };
+    const result = validateEnv(schema);
+
+    expect(result).toEqual({ DEBUG: true, NODE_ENV: 'development' });
+  });
+
+  it('should throw an error for invalid boolean type', () => {
+    process.env.DEBUG = 'not_a_boolean';
+    process.env.NODE_ENV = 'development';
+
+    const schema = { DEBUG: Boolean, NODE_ENV: String };
+
+    validateEnv(schema);
+
+    expect(mockConsoleError).toHaveBeenCalledWith('Environment validation failed:');
+    expect(mockConsoleError).toHaveBeenCalledWith('- DEBUG should be a boolean');
+    expect(process.exit).toHaveBeenCalledWith(1);
+  });
+
+  it('should handle missing env file and fall back to process.env without error', () => {
+    (fs.existsSync as jest.Mock).mockReturnValue(false);
+
+    process.env.PORT = '3000';
+    process.env.NODE_ENV = 'production';
+
+    const schema = { PORT: Number, NODE_ENV: String };
+    const result = validateEnv(schema, undefined);
+
+    expect(result).toEqual({ PORT: 3000, NODE_ENV: 'production' });
   });
 
   it('should throw an error for unsupported types', () => {
-    (dotenv.config as jest.Mock).mockReturnValue({
-      parsed: {
-        UNSUPPORTED: 'value',
-      },
-    });
+    (fs.existsSync as jest.Mock).mockReturnValue(false);
+    process.env.UNSUPPORTED = 'any';
 
     const schema = {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       UNSUPPORTED: Date as any,
     };
+    validateEnv(schema);
 
-    expect(() => validateEnv(schema)).toThrow('Process exit with code 1');
     expect(mockConsoleError).toHaveBeenCalledWith('Environment validation failed:');
     expect(mockConsoleError).toHaveBeenCalledWith('- UNSUPPORTED has an unsupported type');
-  });
-
-  it('should allow specifying a custom .env file', () => {
-    (dotenv.config as jest.Mock).mockReturnValue({
-      parsed: {
-        PORT: '3000',
-      },
-    });
-
-    const schema = {
-      PORT: Number,
-    };
-
-    validateEnv(schema, '.env.test');
-
-    expect(dotenv.config).toHaveBeenCalledWith(expect.objectContaining({
-      path: expect.stringContaining('.env.test'),
-    }));
+    expect(process.exit).toHaveBeenCalledWith(1);
   });
 });
