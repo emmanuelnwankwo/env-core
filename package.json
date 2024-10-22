@@ -1,6 +1,6 @@
 {
   "name": "env-core",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Library for validating and accessing environment variables.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
