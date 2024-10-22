@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import fs from 'fs';
 import path from 'path';
 import dotenv from 'dotenv';
@@ -156,5 +157,18 @@ describe('validateEnv', () => {
     expect(mockConsoleError).toHaveBeenCalledWith('Environment validation failed:');
     expect(mockConsoleError).toHaveBeenCalledWith('- UNSUPPORTED has an unsupported type');
     expect(process.exit).toHaveBeenCalledWith(1);
+  });
+  
+  it('should throw an error for unsupported types while config provided for NestJS', () => {
+    (fs.existsSync as jest.Mock).mockReturnValue(false);
+    process.env.UNSUPPORTED = 'any';
+
+    const schema = {
+      UNSUPPORTED: Date as any,
+    };
+
+    const config = {};
+
+    expect(() => validateEnv(schema, config)).toThrow('Environment validation failed:\n- UNSUPPORTED has an unsupported type');
   });
 });
