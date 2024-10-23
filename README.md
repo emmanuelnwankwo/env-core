@@ -11,12 +11,6 @@
 - Minimal dependencies
 - Works with both ESM (`import`) and CommonJS (`require`)
 
-## Installation
-Install `env-core` package:
-```bash
-npm install env-core
-```
-
 ## Usage
 ### Define the Environment Schema
 First, define a schema for your environment variables. Here are three different use cases for how you can set up your `envSchema`:
