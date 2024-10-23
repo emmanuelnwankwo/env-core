@@ -4,6 +4,16 @@ import dotenv from 'dotenv';
 import type { ValidatedEnv, EnvSchema, EnvSchemaItem } from './types';
 
 
+/**
+ * The function `loadEnvFile` loads environment variables from a specified file using dotenv in a
+ * TypeScript environment.
+ * @param {string} [envFile=.env] - The `envFile` parameter is a string that represents the file path
+ * of the environment file to be loaded. By default, it is set to `'.env'`, which is a common filename
+ * used for environment configuration files in Node.js applications.
+ * @returns `NodeJS.ProcessEnv` object, which contains the
+ * environment variables loaded from the specified `.env` file or the existing process environment
+ * variables if the file does not exist.
+ */
 const loadEnvFile = (envFile: string = '.env'): NodeJS.ProcessEnv => {
     let env: NodeJS.ProcessEnv = process.env;
     const envPath = path.resolve(process.cwd(), envFile);
@@ -20,6 +30,23 @@ const loadEnvFile = (envFile: string = '.env'): NodeJS.ProcessEnv => {
     return env;
 };
 
+/**
+ * The function `validateEnvVariable` checks and validates environment variables based on a specified
+ * schema and returns the value or undefined along with any errors encountered.
+ * @param {string} key - The `key` parameter is a string representing the name of the environment
+ * variable being validated.
+ * @param {string | undefined} envValue - The `envValue` parameter is the value of the environment
+ * variable corresponding to the provided key. It can be a string or undefined if the environment
+ * variable is not set.
+ * @param schemaItem - The `schemaItem` parameter in the `validateEnvVariable` function is of type
+ * `EnvSchemaItem<T>`. This type represents the schema definition for an environment variable. It
+ * contains information such as the type of the variable (Number, Boolean, String)
+ * @param {string[]} errors - The `errors` parameter is an array that stores error messages encountered
+ * during the validation process. If any validation errors occur, they are pushed into this array to be
+ * handled or displayed later.
+ * @returns  Validated environment variable value of type `T` or `undefined` based on 
+ * the provided key, environment value, schema item, and errors array.
+ */
 const validateEnvVariable = <T>(key: string, envValue: string | undefined, schemaItem: EnvSchemaItem<T>, errors: string[]): T | undefined => {
     if (envValue === undefined) {
         if (schemaItem.required) {
