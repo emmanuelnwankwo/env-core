@@ -11,6 +11,10 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
       - name: Install Dependencies
-        run: deno install
+        run: npm install
       - run: npx jsr publish
