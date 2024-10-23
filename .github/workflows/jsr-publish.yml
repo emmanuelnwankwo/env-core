@@ -11,4 +11,6 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v4
+      - name: Install Dependencies
+        run: deno install
       - run: npx jsr publish
