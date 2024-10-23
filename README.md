@@ -82,9 +82,9 @@ The `envSchema` object defines the structure and validation rules for your envir
 
 Supported types: `String`, `Number`, `Boolean`
 
-## Integration Examples
+## Usage Examples
 
-### Express.js Integration
+### Express.js
 Call the `validateEnv` function with your schema to validate the environment variables before starting your server.
 ```javascript
 // src/index.js
@@ -109,7 +109,7 @@ app.listen(env.PORT, () => {
 ```
 If any environment variable is missing or has the wrong type, the app will not start, and a detailed error message will be displayed.
 
-### NestJS Integration
+### NestJS
 `env-core` can be integrated into a NestJS project to validate environment variables during the module initialization process. 
 
 ```typescript
