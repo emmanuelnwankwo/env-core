@@ -153,6 +153,8 @@ The validated configuration object, containing schema fields only. Missing optio
 The package root also exports the types `EnvSchema`, `EnvSchemaItem<T>`, and `ValidatedEnv<T>`.
 
 ## Error Handling
+Validation failures throw the exported `EnvValidationError`, which extends `Error`. Its readonly `issues` array contains `{ code, key?, message }` entries without input values. Codes are `invalid_schema`, `invalid_config`, `missing_required`, and `invalid_type`; root errors have no field key. File-loading errors remain separate errors with their native `cause`.
+
 If validation fails, the package throws an error with detailed information, including:
 - Missing required environment variables
 - Environment variables with incorrect types

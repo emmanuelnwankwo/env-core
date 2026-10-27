@@ -1,4 +1,4 @@
-import { validateEnv } from '../src/index';
+import { EnvValidationError, validateEnv } from '../src/index';
 import type { EnvSchema, EnvSchemaItem, ValidatedEnv } from '../src/index';
 
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
@@ -42,6 +42,11 @@ export function inferredOverloads() {
 }
 
 export function rejectedSchemas() {
+    const error = new EnvValidationError([{ code: 'invalid_type', key: 'PORT', message: 'invalid' }]);
+    // @ts-expect-error readonly issues
+    error.issues.push({ code: 'invalid_type', message: 'invalid' });
+    // @ts-expect-error readonly issue fields
+    error.issues[0].code = 'invalid_schema';
     // @ts-expect-error mismatched numeric default
     validateEnv({ PORT: { type: Number, default: '3000' } }, {});
     // @ts-expect-error mismatched boolean default
