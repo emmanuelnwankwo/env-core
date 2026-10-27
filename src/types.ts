@@ -1,26 +1,40 @@
-interface EnvSchemaItem<T> {
-    type: SchemaType;
+type SchemaType = StringConstructor | NumberConstructor | BooleanConstructor;
+type EnvValue = string | number | boolean;
+
+type SchemaItem<C extends SchemaType, T> = {
+    type: C;
     required?: boolean;
     default?: T;
-}
+};
 
-type SchemaType = typeof String | typeof Number | typeof Boolean;
+type EnvSchemaItem<T = unknown> = unknown extends T
+    ? SchemaItem<StringConstructor, string> | SchemaItem<NumberConstructor, number> | SchemaItem<BooleanConstructor, boolean>
+    : T extends string ? SchemaItem<StringConstructor, T>
+    : T extends number ? SchemaItem<NumberConstructor, T>
+    : T extends boolean ? SchemaItem<BooleanConstructor, T>
+    : never;
 
-type EnvSchemaValue<T> = SchemaType | EnvSchemaItem<T>;
+type EnvSchema = Record<string, SchemaType | EnvSchemaItem>;
 
-type EnvSchema = Record<string, EnvSchemaValue<unknown>>;
+type InferSchemaType<T> = T extends StringConstructor ? string
+    : T extends NumberConstructor ? number
+    : T extends BooleanConstructor ? boolean
+    : never;
 
-type InferSchemaType<T> = T extends typeof String ? string :
-    T extends typeof Number ? number :
-    T extends typeof Boolean ? boolean :
-    never;
+type OptionalValue<T> = 'required' extends keyof T
+    ? false extends T['required'] ? undefined : never
+    : never;
 
-type InferType<T> = T extends SchemaType ? InferSchemaType<T> :
-    T extends EnvSchemaItem<infer U> ? U :
-    never;
+type MissingValue<T> = T extends { required: true } ? never
+    : T extends { default: infer D } ? undefined extends D ? OptionalValue<T> : never
+    : OptionalValue<T>;
+
+type InferType<T> = T extends { type: infer C }
+    ? InferSchemaType<C> | MissingValue<T>
+    : InferSchemaType<T>;
 
 type ValidatedEnv<T extends EnvSchema> = {
     [K in keyof T]: InferType<T[K]>
 };
 
-export type { ValidatedEnv, EnvSchema, EnvSchemaItem };
+export type { ValidatedEnv, EnvSchema, EnvSchemaItem, SchemaType, EnvValue };
