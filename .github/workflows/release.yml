@@ -24,7 +24,7 @@ jobs:
 
   npm:
     needs: verify
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       id-token: write
@@ -54,7 +54,7 @@ jobs:
 
   jsr:
     needs: npm
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       id-token: write
