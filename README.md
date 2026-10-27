@@ -14,19 +14,7 @@
 ## Installation
 
 ```sh
-pnpm add env-core
-```
-
-## Development
-
-Use Node.js 22.13 or newer and the pnpm version pinned in `package.json`. The package's consumer runtime requirement is listed separately in `engines.node`.
-
-```sh
-pnpm install --frozen-lockfile
-pnpm run build
-pnpm run typecheck
-pnpm run lint
-pnpm test --runInBand
+npm install env-core
 ```
 
 ## Usage
@@ -163,8 +151,6 @@ Without `config`, existing process values take precedence over file values. A mi
 The validated configuration object, containing schema fields only. Missing optional fields are omitted and their inferred types include `undefined`. If validation fails, an error is thrown.
 
 The package root also exports the types `EnvSchema`, `EnvSchemaItem<T>`, and `ValidatedEnv<T>`.
-
-**Unreleased migration notes:** Explicit configuration objects are now honored, process values override files, and validation no longer injects file values into `process.env`. Validation failures now throw instead of logging and exiting; callers own reporting and exit status. These behavior changes require compatible release versioning before publication.
 
 ## Error Handling
 If validation fails, the package throws an error with detailed information, including:
