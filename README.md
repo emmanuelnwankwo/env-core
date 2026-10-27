@@ -96,8 +96,6 @@ Supported types: `String`, `Number`, `Boolean`
 
 A valid default makes a field optional unless `required: true` is explicit. Defaults must match their constructor and are validated even when input is present. `default: undefined` behaves like no default. Missing values and `undefined` are distinct from empty strings and `null`; empty strings remain present values, while `null` is invalid.
 
-Number parsing preserves `Number(value)` behavior except that `NaN` is rejected, so blank strings become `0` and infinities are accepted. Boolean values accept exactly `'true'`, `'false'`, `true`, or `false`; String values must be strings.
-
 ## Usage Examples
 
 ### Express.js

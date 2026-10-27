@@ -88,9 +88,49 @@ function convertValue(key: string, value: unknown, type: SchemaType, errors: str
     }
 }
 
-/** validates process values with optional file fallbacks */
+/**
+ * Validates process environment variables with optional file fallbacks.
+ *
+ * @template T - The type of the environment schema.
+ * @param {T} schema - An object describing the expected environment variables and their types.
+ *                     Each key in the schema can be either a constructor (String, Number, Boolean)
+ *                     or an object with `type`, `required`, and `default` properties.
+ * @param {string} [envFile] - The environment file to load. Defaults to an optional '.env' file.
+ *                            Existing process values take precedence; process.env is never modified.
+ *
+ * @returns {ValidatedEnv<T>} An object containing only validated schema fields. Missing optional fields are omitted.
+ * @throws {Error} If the schema or values are invalid, a required field is missing, or an explicit file cannot be loaded.
+ *
+ * @example
+ * const env = validateEnv({
+ *   PORT: Number,
+ *   NODE_ENV: String,
+ *   DEBUG: { type: Boolean, default: false }
+ * });
+ *
+ */
 function validateEnv<T extends EnvSchema>(schema: T, envFile?: string): ValidatedEnv<T>;
-/** validates explicit configuration without consulting files or process values */
+/**
+ * Validates an explicit configuration object, including configurations supplied by NestJS.
+ *
+ * @template T - The type of the environment schema.
+ * @param {T} schema - An object describing the expected environment variables and their types.
+ *                     Each key in the schema can be either a constructor (String, Number, Boolean)
+ *                     or an object with `type`, `required`, and `default` properties.
+ * @param {Record<string, unknown>} config - The sole configuration source; no files or process values are merged.
+ *                                          Values may be strings or already typed numbers and booleans.
+ * @param {string} [envFile] - Retained for compatibility and ignored when config is supplied.
+ *
+ * @returns {ValidatedEnv<T>} An object containing only validated schema fields. Missing optional fields are omitted.
+ * @throws {Error} If the schema or values are invalid or a required field is missing.
+ *
+ * @example
+ * ConfigModule.forRoot({
+ *   isGlobal: true,
+ *   validate: (config) => validateEnv(envSchema, config),
+ * }),
+ *
+ */
 function validateEnv<T extends EnvSchema>(schema: T, config: Record<string, unknown>, envFile?: string): ValidatedEnv<T>;
 function validateEnv<T extends EnvSchema>(schema: T, configOrEnvFile?: Record<string, unknown> | string, envFile?: string): ValidatedEnv<T> {
     if (!isRecord(schema)) throw new Error('Environment schema must be an object');
