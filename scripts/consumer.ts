@@ -48,6 +48,8 @@ const values: ValidatedEnv<typeof schema> = validateEnv(schema, { PORT: '3210' }
 const port: number = values.PORT;
 const debug: boolean = values.DEBUG;
 const label: string | undefined = values.LABEL;
+assert.equal(validateEnv({ PORT: { type: Number, strict: true } }, { PORT: '3e2' }).PORT, 300);
+assert.throws(() => validateEnv({ PORT: { type: Number, strict: true } }, { PORT: ' ' }), EnvValidationError);
 assert.equal(port, 3210);
 assert.equal(debug, false);
 assert.equal(label, undefined);

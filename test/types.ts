@@ -33,15 +33,20 @@ export type InferenceAssertions = [
 ];
 
 export function inferredOverloads() {
+    const strict: number = validateEnv({ PORT: { type: Number, strict: true } }, { PORT: '3000' }).PORT;
     const result = validateEnv({ PORT: { type: Number }, DEBUG: { type: Boolean, default: false } }, {});
     const number: number = result.PORT;
     const boolean: boolean = result.DEBUG;
     const typedBoolean: EnvSchemaItem<boolean> = { type: Boolean, default: boolean };
     const fromFile: number = validateEnv({ PORT: { type: Number } }, 'test.env').PORT;
-    return { number, boolean, typedBoolean, fromFile };
+    return { number, boolean, typedBoolean, fromFile, strict };
 }
 
 export function rejectedSchemas() {
+    // @ts-expect-error strict parsing applies to numbers and booleans
+    validateEnv({ LABEL: { type: String, strict: true } }, {});
+    // @ts-expect-error strict must be a boolean
+    validateEnv({ PORT: { type: Number, strict: 'true' } }, {});
     const error = new EnvValidationError([{ code: 'invalid_type', key: 'PORT', message: 'invalid' }]);
     // @ts-expect-error readonly issues
     error.issues.push({ code: 'invalid_type', message: 'invalid' });

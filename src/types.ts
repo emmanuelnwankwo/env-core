@@ -5,6 +5,7 @@ type SchemaItem<C extends SchemaType, T> = {
     type: C;
     required?: boolean;
     default?: T;
+    strict?: C extends NumberConstructor | BooleanConstructor ? boolean : never;
 };
 
 type EnvSchemaItem<T = unknown> = unknown extends T
