@@ -5,8 +5,10 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
-    "import": "./dist/index.d.ts",
-    "require": "./dist/index.js"
+    "types": "./dist/index.d.ts",
+    "import": "./dist/index.js",
+    "require": "./dist/index.js",
+    "default": "./dist/index.js"
   },
   "homepage": "https://github.com/emmanuelnwankwo/env-core#readme",
   "bugs": {
@@ -18,11 +20,11 @@
     "url": "git://github.com/emmanuelnwankwo/env-core.git"
   },
   "scripts": {
-    "build": "tsc",
-    "prepublish": "pnpm run build",
+    "build": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\" && tsc",
     "test": "jest",
     "lint": "eslint",
-    "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json --noEmit"
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json --noEmit",
+    "prepack": "pnpm run build"
   },
   "keywords": [
     "env",
