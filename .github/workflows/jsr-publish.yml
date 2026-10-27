@@ -10,11 +10,16 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@v4
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
+      - uses: actions/checkout@v7.0.1
+      - uses: pnpm/action-setup@v6.1.0
+      - uses: actions/setup-node@v7.1.0
         with:
-          node-version: '18'
-      - name: Install Dependencies
-        run: npm install
-      - run: npx jsr publish
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run build
+      - run: pnpm run typecheck
+      - run: pnpm run lint
+      - run: pnpm test --runInBand
+      - run: pnpm exec jsr publish --dry-run
+      - run: pnpm exec jsr publish
