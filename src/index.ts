@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import dotenv from 'dotenv';
-import type { EnvSchema, EnvValue, SchemaType, ValidatedEnv } from './types';
+import type { EnvSchema, EnvValue, SchemaType, ValidatedEnv } from './types.ts';
 
 interface NormalizedItem {
     type: SchemaType;
@@ -164,4 +164,4 @@ function validateEnv<T extends EnvSchema>(schema: T, configOrEnvFile?: Record<st
 }
 
 export { validateEnv };
-export type { ValidatedEnv, EnvSchema, EnvSchemaItem } from './types';
+export type { ValidatedEnv, EnvSchema, EnvSchemaItem } from './types.ts';

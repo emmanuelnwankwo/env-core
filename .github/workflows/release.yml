@@ -1,0 +1,76 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version matching package.json and jsr.json
+        required: true
+        default: 1.1.2
+        type: string
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    uses: ./.github/workflows/verify.yml
+    with:
+      release-version: ${{ inputs.version }}
+
+  npm:
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      RELEASE_VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: pnpm/action-setup@v6.1.0
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: 24.x
+          registry-url: https://registry.npmjs.org/
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run verify:release check --release
+      - uses: actions/download-artifact@v8.0.2
+        with:
+          name: env-core-${{ github.sha }}
+          path: .release
+      - id: npm-status
+        run: pnpm run verify:release npm-status .release/env-core-*.tgz .release/metadata.json
+      - if: steps.npm-status.outputs.publish == 'true'
+        run: npm publish .release/env-core-*.tgz --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - run: pnpm run verify:release npm-verify .release/env-core-*.tgz .release/metadata.json
+
+  jsr:
+    needs: npm
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      RELEASE_VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: pnpm/action-setup@v6.1.0
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: 24.x
+          cache: pnpm
+      - uses: denoland/setup-deno@v2.0.5
+        with:
+          deno-version: 2.9.6
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run verify:release check --release
+      - run: deno publish --dry-run --no-lock
+      - run: deno publish --no-lock

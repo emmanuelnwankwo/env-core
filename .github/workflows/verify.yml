@@ -1,0 +1,109 @@
+name: Verify release artifacts
+
+on:
+  workflow_call:
+    inputs:
+      release-version:
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [22.x, 24.x, 26.x]
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: pnpm/action-setup@v6.1.0
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: ${{ matrix.node }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec nub run --node build
+      - run: pnpm exec nub run --node typecheck
+      - run: pnpm exec nub run --node lint
+      - run: pnpm exec nub run --node test --runInBand
+
+  package:
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_VERSION: ${{ inputs.release-version }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: pnpm/action-setup@v6.1.0
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: 24.x
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - if: inputs.release-version == ''
+        run: pnpm run verify:release check
+      - if: inputs.release-version != ''
+        run: pnpm run verify:release check --release
+      - run: mkdir -p .release && pnpm pack --pack-destination .release
+      - run: pnpm run verify:release artifact .release/env-core-*.tgz .release/metadata.json
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: env-core-${{ github.sha }}
+          path: .release/
+          include-hidden-files: true
+          if-no-files-found: error
+
+  consumers:
+    needs: package
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - { manager: npm, node: 16.0.0 }
+          - { manager: npm, node: 22.x }
+          - { manager: npm, node: 24.x }
+          - { manager: npm, node: 26.x }
+          - { manager: pnpm, node: 24.x }
+          - { manager: yarn-classic, node: 24.x }
+          - { manager: yarn-modern, node: 24.x }
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: ${{ matrix.node }}
+      - id: runtime
+        run: echo "path=$(command -v node)" >> "$GITHUB_OUTPUT"
+      - uses: pnpm/action-setup@v6.1.0
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: 24.x
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@v8.0.2
+        with:
+          name: env-core-${{ github.sha }}
+          path: .release
+      - run: pnpm run verify:release verify .release/env-core-*.tgz .release/metadata.json
+      - run: pnpm run verify:consumer "$CONSUMER_MANAGER" .release/env-core-*.tgz
+        env:
+          CONSUMER_MANAGER: ${{ matrix.manager }}
+          CONSUMER_NODE: ${{ steps.runtime.outputs.path }}
+
+  jsr:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: pnpm/action-setup@v6.1.0
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: 24.x
+          cache: pnpm
+      - uses: denoland/setup-deno@v2.0.5
+        with:
+          deno-version: 2.9.6
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run verify:release check
+      - run: deno check --no-lock test/jsr.ts
+      - run: deno run --no-lock --allow-env test/jsr.ts
+      - run: deno publish --dry-run --no-lock

@@ -10,20 +10,5 @@ permissions:
   contents: read
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        node-version: [22.x, 24.x, 26.x]
-    steps:
-      - uses: actions/checkout@v7.0.1
-      - uses: pnpm/action-setup@v6.1.0
-      - uses: actions/setup-node@v7.1.0
-        with:
-          node-version: ${{ matrix.node-version }}
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm run build
-      - run: pnpm run typecheck
-      - run: pnpm run lint
-      - run: pnpm test --runInBand
+  verify:
+    uses: ./.github/workflows/verify.yml

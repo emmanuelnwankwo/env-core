@@ -6,6 +6,7 @@ module.exports = {
   },
   testPathIgnorePatterns: ["<rootDir>/node_modules/"],
   collectCoverage: true,
+  collectCoverageFrom: ["src/**/*.ts"],
   coverageDirectory: "coverage",
   coveragePathIgnorePatterns: ["<rootDir>/node_modules/"],
   coverageThreshold: {
