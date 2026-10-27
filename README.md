@@ -84,6 +84,12 @@ Supported types: `String`, `Number`, `Boolean`
 
 A valid default makes a field optional unless `required: true` is explicit. Defaults must match their constructor and are validated even when input is present. `default: undefined` behaves like no default. Missing values and `undefined` are distinct from empty strings and `null`; empty strings remain present values, while `null` is invalid.
 
+### Strict parsing
+
+Set `strict: true` on a Number field to accept only finite numbers or decimal strings, including signs, fractions, and exponent notation: `{ type: Number, strict: true }`. Blank strings, whitespace, hex/binary/octal notation, `NaN`, and `Infinity` are rejected. JavaScript number precision still applies. Numeric defaults must also be finite in strict mode. Existing Number fields retain their current conversion unless they opt in.
+
+Boolean fields, with or without `strict: true`, accept only typed booleans and the exact strings `'true'` and `'false'`; `0`, `1`, case variants, and whitespace are invalid. Missing fields continue to follow `required` and `default`; String fields accept empty strings and do not support `strict`.
+
 ## Usage Examples
 
 ### Express.js
@@ -153,7 +159,7 @@ The validated configuration object, containing schema fields only. Missing optio
 The package root also exports the types `EnvSchema`, `EnvSchemaItem<T>`, and `ValidatedEnv<T>`.
 
 ## Error Handling
-Validation failures throw the exported `EnvValidationError`, which extends `Error`. Its readonly `issues` array contains `{ code, key?, message }` entries without input values. Codes are `invalid_schema`, `invalid_config`, `missing_required`, and `invalid_type`; root errors have no field key. File-loading errors remain separate errors with their native `cause`.
+Validation failures throw the exported `EnvValidationError`, which extends `Error`. Its readonly `issues` array contains `{ code, key?, message }` entries without input values. Codes are `invalid_schema`, `invalid_config`, `missing_required`, `invalid_type`, and `invalid_value` (strict numeric parsing); root errors have no field key. File-loading errors remain separate errors with their native `cause`.
 
 If validation fails, the package throws an error with detailed information, including:
 - Missing required environment variables

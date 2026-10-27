@@ -9,7 +9,10 @@ interface NormalizedItem {
     type: SchemaType;
     required: boolean;
     default: EnvValue | undefined;
+    strict: boolean;
 }
+
+const decimal = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?(?![\s\S])/;
 
 const hasOwn = (value: object, key: PropertyKey): boolean => Object.prototype.hasOwnProperty.call(value, key);
 
@@ -58,7 +61,13 @@ function normalizeItem(key: string, value: unknown, issues: EnvIssue[]): Normali
         return;
     }
     const fallback = hasOwn(item, 'default') ? item.default : undefined;
-    if (fallback !== undefined && !validDefault(fallback, type)) {
+    const strict = hasOwn(item, 'strict') ? item.strict : undefined;
+    if (strict !== undefined && (typeof strict !== 'boolean' || type === String)) {
+        issues.push({ code: 'invalid_schema', key, message: `${displayKey(key)} strict requires a Number or Boolean field and a boolean flag` });
+        return;
+    }
+    if (fallback !== undefined && (!validDefault(fallback, type) ||
+        (strict === true && type === Number && !Number.isFinite(fallback)))) {
         issues.push({ code: 'invalid_schema', key, message: `${displayKey(key)} has an invalid default` });
         return;
     }
@@ -66,12 +75,13 @@ function normalizeItem(key: string, value: unknown, issues: EnvIssue[]): Normali
         type,
         required: required === true || (required !== false && fallback === undefined),
         default: fallback,
+        strict: strict === true,
     };
 }
 
 /** converts present values while keeping raw input out of errors */
-function convertValue(key: string, value: unknown, type: SchemaType, issues: EnvIssue[]): EnvValue | undefined {
-    switch (type) {
+function convertValue(key: string, value: unknown, item: NormalizedItem, issues: EnvIssue[]): EnvValue | undefined {
+    switch (item.type) {
         case String:
             if (typeof value === 'string') return value;
             issues.push({ code: 'invalid_type', key, message: `${displayKey(key)} should be a string` });
@@ -79,6 +89,11 @@ function convertValue(key: string, value: unknown, type: SchemaType, issues: Env
         case Number:
             if (typeof value === 'string' || typeof value === 'number') {
                 const number = Number(value);
+                if (item.strict) {
+                    if (Number.isFinite(number) && (typeof value === 'number' || decimal.test(value))) return number;
+                    issues.push({ code: 'invalid_value', key, message: `${displayKey(key)} should be a finite decimal number` });
+                    return;
+                }
                 if (!Number.isNaN(number)) return number;
             }
             issues.push({ code: 'invalid_type', key, message: `${displayKey(key)} should be a number` });
@@ -96,7 +111,9 @@ function convertValue(key: string, value: unknown, type: SchemaType, issues: Env
  * @template T - The type of the environment schema.
  * @param {T} schema - An object describing the expected environment variables and their types.
  *                     Each key in the schema can be either a constructor (String, Number, Boolean)
- *                     or an object with `type`, `required`, and `default` properties.
+ *                     or an object with `type`, `required`, `default`, and optional `strict` properties.
+ *                     Number fields with `strict: true` accept finite decimal/exponent values without whitespace.
+ *                     Boolean fields accept typed booleans or exactly 'true'/'false'; coercion is never used.
  * @param {string} [envFile] - The environment file to load. Defaults to an optional '.env' file.
  *                            Existing process values take precedence; process.env is never modified.
  *
@@ -119,7 +136,9 @@ function validateEnv<T extends EnvSchema>(schema: T, envFile?: string): Validate
  * @template T - The type of the environment schema.
  * @param {T} schema - An object describing the expected environment variables and their types.
  *                     Each key in the schema can be either a constructor (String, Number, Boolean)
- *                     or an object with `type`, `required`, and `default` properties.
+ *                     or an object with `type`, `required`, `default`, and optional `strict` properties.
+ *                     Number fields with `strict: true` accept finite decimal/exponent values without whitespace.
+ *                     Boolean fields accept typed booleans or exactly 'true'/'false'; coercion is never used.
  * @param {Record<string, unknown>} config - The sole configuration source; no files or process values are merged.
  *                                          Values may be strings or already typed numbers and booleans.
  * @param {string} [envFile] - Retained for compatibility and ignored when config is supplied.
@@ -156,7 +175,7 @@ function validateEnv<T extends EnvSchema>(schema: T, configOrEnvFile?: Record<st
             if (item.required) issues.push({ code: 'missing_required', key, message: `Missing required field: ${displayKey(key)}` });
             else validated = item.default;
         } else {
-            validated = convertValue(key, value, item.type, issues);
+            validated = convertValue(key, value, item, issues);
         }
         if (validated !== undefined) {
             Object.defineProperty(result, key, { value: validated, enumerable: true, writable: true, configurable: true });

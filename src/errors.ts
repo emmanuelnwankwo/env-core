@@ -1,4 +1,4 @@
-export type EnvIssueCode = 'invalid_schema' | 'invalid_config' | 'missing_required' | 'invalid_type';
+export type EnvIssueCode = 'invalid_schema' | 'invalid_config' | 'missing_required' | 'invalid_type' | 'invalid_value';
 
 export interface EnvIssue {
     readonly code: EnvIssueCode;
