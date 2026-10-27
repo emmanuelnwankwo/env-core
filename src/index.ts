@@ -1,6 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import dotenv from 'dotenv';
+import { displayKey, EnvValidationError } from './errors.ts';
+import type { EnvIssue } from './errors.ts';
 import type { EnvSchema, EnvValue, SchemaType, ValidatedEnv } from './types.ts';
 
 interface NormalizedItem {
@@ -43,21 +45,21 @@ function validDefault(value: unknown, type: SchemaType): value is EnvValue {
 }
 
 /** validates field definitions before applying missing-value rules */
-function normalizeItem(key: string, value: unknown, errors: string[]): NormalizedItem | undefined {
+function normalizeItem(key: string, value: unknown, issues: EnvIssue[]): NormalizedItem | undefined {
     const item = isRecord(value) ? value : { type: value };
     const type = hasOwn(item, 'type') ? item.type : undefined;
     if (!isSchemaType(type)) {
-        errors.push(`${key} has an unsupported type`);
+        issues.push({ code: 'invalid_schema', key, message: `${displayKey(key)} has an unsupported type` });
         return;
     }
     const required = hasOwn(item, 'required') ? item.required : undefined;
     if (required !== undefined && typeof required !== 'boolean') {
-        errors.push(`${key} required must be a boolean`);
+        issues.push({ code: 'invalid_schema', key, message: `${displayKey(key)} required must be a boolean` });
         return;
     }
     const fallback = hasOwn(item, 'default') ? item.default : undefined;
     if (fallback !== undefined && !validDefault(fallback, type)) {
-        errors.push(`${key} has an invalid default`);
+        issues.push({ code: 'invalid_schema', key, message: `${displayKey(key)} has an invalid default` });
         return;
     }
     return {
@@ -68,23 +70,23 @@ function normalizeItem(key: string, value: unknown, errors: string[]): Normalize
 }
 
 /** converts present values while keeping raw input out of errors */
-function convertValue(key: string, value: unknown, type: SchemaType, errors: string[]): EnvValue | undefined {
+function convertValue(key: string, value: unknown, type: SchemaType, issues: EnvIssue[]): EnvValue | undefined {
     switch (type) {
         case String:
             if (typeof value === 'string') return value;
-            errors.push(`${key} should be a string`);
+            issues.push({ code: 'invalid_type', key, message: `${displayKey(key)} should be a string` });
             break;
         case Number:
             if (typeof value === 'string' || typeof value === 'number') {
                 const number = Number(value);
                 if (!Number.isNaN(number)) return number;
             }
-            errors.push(`${key} should be a number`);
+            issues.push({ code: 'invalid_type', key, message: `${displayKey(key)} should be a number` });
             break;
         case Boolean:
             if (typeof value === 'boolean') return value;
             if (value === 'true' || value === 'false') return value === 'true';
-            errors.push(`${key} should be a boolean`);
+            issues.push({ code: 'invalid_type', key, message: `${displayKey(key)} should be a boolean` });
     }
 }
 
@@ -99,7 +101,8 @@ function convertValue(key: string, value: unknown, type: SchemaType, errors: str
  *                            Existing process values take precedence; process.env is never modified.
  *
  * @returns {ValidatedEnv<T>} An object containing only validated schema fields. Missing optional fields are omitted.
- * @throws {Error} If the schema or values are invalid, a required field is missing, or an explicit file cannot be loaded.
+ * @throws {EnvValidationError} If the schema or values are invalid or a required field is missing; issues contain codes and keys.
+ * @throws {Error} If an explicit file cannot be loaded.
  *
  * @example
  * const env = validateEnv({
@@ -122,7 +125,7 @@ function validateEnv<T extends EnvSchema>(schema: T, envFile?: string): Validate
  * @param {string} [envFile] - Retained for compatibility and ignored when config is supplied.
  *
  * @returns {ValidatedEnv<T>} An object containing only validated schema fields. Missing optional fields are omitted.
- * @throws {Error} If the schema or values are invalid or a required field is missing.
+ * @throws {EnvValidationError} If the schema or values are invalid or a required field is missing; issues contain codes and keys.
  *
  * @example
  * ConfigModule.forRoot({
@@ -133,35 +136,37 @@ function validateEnv<T extends EnvSchema>(schema: T, envFile?: string): Validate
  */
 function validateEnv<T extends EnvSchema>(schema: T, config: Record<string, unknown>, envFile?: string): ValidatedEnv<T>;
 function validateEnv<T extends EnvSchema>(schema: T, configOrEnvFile?: Record<string, unknown> | string, envFile?: string): ValidatedEnv<T> {
-    if (!isRecord(schema)) throw new Error('Environment schema must be an object');
-    if (Object.getOwnPropertySymbols(schema).length) throw new Error('Environment schema keys must be strings');
+    if (!isRecord(schema)) throw new EnvValidationError([{ code: 'invalid_schema', message: 'Environment schema must be an object' }]);
+    if (Object.getOwnPropertySymbols(schema).length) throw new EnvValidationError([{ code: 'invalid_schema', message: 'Environment schema keys must be strings' }]);
     let source: Record<string, unknown>;
     if (configOrEnvFile === undefined || typeof configOrEnvFile === 'string') {
         source = loadEnvFile(typeof configOrEnvFile === 'string' ? configOrEnvFile : envFile);
     } else {
-        if (!isRecord(configOrEnvFile)) throw new Error('Environment configuration must be an object');
+        if (!isRecord(configOrEnvFile)) throw new EnvValidationError([{ code: 'invalid_config', message: 'Environment configuration must be an object' }]);
         source = configOrEnvFile;
     }
     const result: Record<string, unknown> = {};
-    const errors: string[] = [];
+    const issues: EnvIssue[] = [];
     for (const key of Object.getOwnPropertyNames(schema)) {
-        const item = normalizeItem(key, schema[key], errors);
+        const item = normalizeItem(key, schema[key], issues);
         if (!item) continue;
         const value = hasOwn(source, key) ? source[key] : undefined;
         let validated: EnvValue | undefined;
         if (value === undefined) {
-            if (item.required) errors.push(`Missing required field: ${key}`);
+            if (item.required) issues.push({ code: 'missing_required', key, message: `Missing required field: ${displayKey(key)}` });
             else validated = item.default;
         } else {
-            validated = convertValue(key, value, item.type, errors);
+            validated = convertValue(key, value, item.type, issues);
         }
         if (validated !== undefined) {
             Object.defineProperty(result, key, { value: validated, enumerable: true, writable: true, configurable: true });
         }
     }
-    if (errors.length) throw new Error(`Environment validation failed:\n${errors.map(error => `- ${error}`).join('\n')}`);
+    if (issues.length) throw new EnvValidationError(issues);
     return result as ValidatedEnv<T>;
 }
 
 export { validateEnv };
+export { EnvValidationError } from './errors.ts';
+export type { EnvIssue, EnvIssueCode } from './errors.ts';
 export type { ValidatedEnv, EnvSchema, EnvSchemaItem } from './types.ts';

@@ -40,7 +40,7 @@ export function verifyConsumer(manager: string, archive: string, targetNode = pr
             run(process.execPath, [yarn as string, 'add', ...(manager === 'yarn-classic' ? ['--ignore-scripts', '--non-interactive', '--registry', 'https://registry.npmjs.org'] : []), archive]);
         }
         const source = `import { strict as assert } from 'node:assert';
-import { validateEnv } from 'env-core';
+import { EnvValidationError, validateEnv } from 'env-core';
 import type { EnvSchema, ValidatedEnv } from 'env-core';
 const schema = { PORT: Number, DEBUG: { type: Boolean, default: false }, LABEL: { type: String, required: false } } satisfies EnvSchema;
 process.env.PORT = '9000';
@@ -52,7 +52,7 @@ assert.equal(port, 3210);
 assert.equal(debug, false);
 assert.equal(label, undefined);
 assert.equal(process.env.PORT, '9000');
-assert.throws(() => validateEnv({ PORT: Number }, { PORT: 'invalid' }), /PORT/);
+assert.throws(() => validateEnv({ PORT: Number }, { PORT: 'invalid' }), EnvValidationError);
 `;
         for (const extension of ['cts', 'mts']) writeFileSync(path.join(directory, `index.${extension}`), source);
         if (manager !== 'yarn-modern') {

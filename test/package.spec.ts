@@ -50,8 +50,11 @@ describe('packed package', () => {
         expect(manifest.exports.types).toMatch(/\.d\.ts$/);
 
         const source = `import { strict as assert } from 'node:assert';
-import { validateEnv } from 'env-core';
-import type { EnvSchema, EnvSchemaItem, ValidatedEnv } from 'env-core';
+import { EnvValidationError, validateEnv } from 'env-core';
+import type { EnvIssue, EnvSchema, EnvSchemaItem, ValidatedEnv } from 'env-core';
+assert.throws(() => validateEnv({ MISSING: String }, {}), EnvValidationError);
+const issue: EnvIssue = { code: 'missing_required', key: 'MISSING', message: 'missing' };
+assert.equal(new EnvValidationError([issue]).issues[0].code, 'missing_required');
 const schema = { PACK_PORT: Number } satisfies EnvSchema;
 const item: EnvSchemaItem<number> = { type: Number };
 assert.equal(item.type, Number);

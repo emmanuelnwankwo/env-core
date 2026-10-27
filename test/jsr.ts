@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
-import { validateEnv } from '../src/index.ts';
+import { EnvValidationError, validateEnv } from '../src/index.ts';
 import type { EnvSchema, ValidatedEnv } from '../src/types.ts';
 
 const schema = { PORT: Number, DEBUG: { type: Boolean, default: false } } satisfies EnvSchema;
 const values: ValidatedEnv<typeof schema> = validateEnv(schema, { PORT: '3210' });
 assert.equal(values.PORT, 3210);
 assert.equal(values.DEBUG, false);
-assert.throws(() => validateEnv({ PORT: Number }, { PORT: 'invalid' }), /PORT/);
+assert.throws(() => validateEnv({ PORT: Number }, { PORT: 'invalid' }), EnvValidationError);
