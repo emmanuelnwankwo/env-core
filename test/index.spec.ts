@@ -1,174 +1,224 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import fs from 'fs';
-import path from 'path';
-import dotenv from 'dotenv';
-import { jest, describe, it, expect, beforeEach, afterAll } from '@jest/globals';
+import fs from 'node:fs';
+import path from 'node:path';
+import { tmpdir } from 'node:os';
+import { spawnSync } from 'node:child_process';
+import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { validateEnv } from '../src/index';
+import type { EnvSchema } from '../src/types';
 
+const originalEnv = process.env;
+const fixtures: string[] = [];
 
-jest.mock('fs');
-jest.mock('dotenv');
-jest.mock('path', () => ({
-  resolve: jest.fn()
-}));
+function directory(): string {
+    const result = fs.mkdtempSync(path.join(tmpdir(), 'env-core-validation-'));
+    fixtures.push(result);
+    return result;
+}
 
-describe('validateEnv', () => {
-  const originalEnv: NodeJS.ProcessEnv = process.env;
-  const mockConsoleError = jest.spyOn(console, 'error').mockImplementation(() => { });
-  
-  beforeEach(() => {
-    jest.clearAllMocks();
-    process.env = { ...originalEnv }; // Reset environment
-    process.exit = jest.fn() as any;
-  });
+function file(contents: string): string {
+    const result = path.join(directory(), '.env');
+    fs.writeFileSync(result, contents);
+    return result;
+}
 
-  afterAll(() => {
-    process.env = originalEnv; // Restore original environment
-  });
+beforeEach(() => {
+    process.env = {};
+    jest.spyOn(process, 'cwd').mockReturnValue(directory());
+    jest.spyOn(process, 'exit').mockImplementation(() => { throw new Error('unexpected process exit'); });
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+});
 
-  it('should load variables from .env file when present', () => {
-    const mockEnvPath = '/test/path/.env';
-    (path.resolve as jest.Mock).mockReturnValue(mockEnvPath);
-    (fs.existsSync as jest.Mock).mockReturnValue(true);
-    (dotenv.config as jest.Mock).mockReturnValue({
-      parsed: { PORT: '3000', NODE_ENV: 'production' },
+afterEach(() => {
+    process.env = originalEnv;
+    jest.restoreAllMocks();
+    for (const fixture of fixtures.splice(0)) fs.rmSync(fixture, { recursive: true, force: true });
+});
+
+describe('validation', () => {
+    it.each([
+        ['string', String, 'text', 'text'],
+        ['number string', Number, '3000', 3000],
+        ['typed number', Number, 3000, 3000],
+        ['true string', Boolean, 'true', true],
+        ['false string', Boolean, 'false', false],
+        ['typed true', Boolean, true, true],
+        ['typed false', Boolean, false, false],
+    ] as const)('accepts %s values', (_name, type, input, expected) => {
+        expect(validateEnv({ VALUE: type }, { VALUE: input })).toEqual({ VALUE: expected });
     });
 
-    const schema = { PORT: Number, NODE_ENV: String };
-    const result = validateEnv(schema);
+    it.each([
+        [Number, 'secret-invalid-number'], [Number, NaN], [Number, true],
+        [Boolean, 'TRUE'], [Boolean, '1'], [Boolean, 0],
+        [String, 3000], [String, null], [String, {}], [String, []],
+    ] as const)('rejects invalid input for %p', (type, input) => {
+        expect(() => validateEnv({ VALUE: type }, { VALUE: input })).toThrow(/VALUE should be a/);
+    });
 
-    expect(result).toEqual({ PORT: 3000, NODE_ENV: 'production' });
-    expect(dotenv.config).toHaveBeenCalledWith({ path: mockEnvPath });
-  });
+    it.each([
+        [{ VALUE: { type: Number, default: 0 } }, { VALUE: 0 }],
+        [{ VALUE: { type: String, default: '' } }, { VALUE: '' }],
+        [{ VALUE: { type: Boolean, default: false } }, { VALUE: false }],
+        [{ VALUE: { type: Number, required: false, default: 8080 } }, { VALUE: 8080 }],
+        [{ VALUE: { type: String, required: false } }, {}],
+        [{ VALUE: { type: String, required: false, default: undefined } }, {}],
+    ] as const)('handles missing values for %p', (schema, expected) => {
+        expect(validateEnv(schema, {})).toEqual(expected);
+    });
 
-  it('should throw an error if dotenv.config fails to load .env file and continue with process.env', () => {
-    (fs.existsSync as jest.Mock).mockReturnValue(true);
-    (dotenv.config as jest.Mock).mockReturnValue({ error: new Error('Mocked dotenv error') });
-    const mockEnvFile = 'test.env';
+    it.each([
+        { VALUE: String },
+        { VALUE: { type: String } },
+        { VALUE: { type: String, required: true, default: 'fallback' } },
+        { VALUE: { type: String, default: undefined } },
+    ] as const)('requires missing values for %p', schema => {
+        expect(() => validateEnv(schema, {})).toThrow('Missing required field: VALUE');
+    });
 
-    const schema = { PORT: Number };
+    it('validates supplied values instead of falling back after an error', () => {
+        expect(() => validateEnv({ VALUE: { type: Number, default: 10 } }, { VALUE: 'invalid' }))
+            .toThrow('VALUE should be a number');
+        expect(validateEnv({ VALUE: { type: Number, default: 10 } }, { VALUE: '20' })).toEqual({ VALUE: 20 });
+    });
 
-    validateEnv(schema, mockEnvFile);
+    it('aggregates errors without logging, exiting, or exposing values', () => {
+        expect(() => validateEnv({ MISSING: String, VALUE: Number }, { VALUE: 'TOP_SECRET' }))
+            .toThrow('Environment validation failed:\n- Missing required field: MISSING\n- VALUE should be a number');
+        expect(() => validateEnv({ MISSING: String })).toThrow('Missing required field: MISSING');
+        expect(process.exit).not.toHaveBeenCalled();
+        expect(console.error).not.toHaveBeenCalled();
+    });
 
-    expect(mockConsoleError).toHaveBeenCalledWith(`Error loading ${mockEnvFile}: Mocked dotenv error`);
-    expect(mockConsoleError).toHaveBeenCalledWith('Environment validation failed:');
-  });
+    it.each([['', 0], [' ', 0], ['Infinity', Infinity], ['-Infinity', -Infinity], ['0x10', 16]] as const)(
+        'preserves existing numeric conversion for %j', (input, expected) => {
+            expect(validateEnv({ VALUE: Number }, { VALUE: input }).VALUE).toBe(expected);
+        });
 
-  it('should use process.env if .env file is missing and return correct environment variables', () => {
-    (fs.existsSync as jest.Mock).mockReturnValue(false);
+    it('preserves an empty string as a present string value', () => {
+        expect(validateEnv({ VALUE: String }, { VALUE: '' })).toEqual({ VALUE: '' });
+    });
 
-    process.env.PORT = '4000';
-    process.env.NODE_ENV = 'development';
+    it('throws catchable errors in a real host process', () => {
+        const fixture = directory();
+        const script = path.join(fixture, 'host.cts');
+        fs.writeFileSync(script, `import { strict as assert } from 'node:assert';
+import { validateEnv } from ${JSON.stringify(path.resolve(__dirname, '../src/index.ts'))};
+let caught = false;
+try { validateEnv({ MISSING: String }); }
+catch (error) { assert.match((error as Error).message, /Missing required field: MISSING/); caught = true; }
+assert.equal(caught, true);
+`);
+        const result = spawnSync(process.execPath, ['--require', require.resolve('tsx/cjs'), script], {
+            cwd: fixture, env: {}, encoding: 'utf8', timeout: 15000,
+        });
+        expect({ status: result.status, stdout: result.stdout, stderr: result.stderr })
+            .toEqual({ status: 0, stdout: '', stderr: '' });
+    });
+});
 
-    const schema = { PORT: Number, NODE_ENV: String };
-    const result = validateEnv(schema);
+describe('sources', () => {
+    it('uses explicit configuration alone and ignores the legacy file argument', () => {
+        process.env.PORT = '1111';
+        process.env.HOST = 'process-only';
+        const envFile = file('PORT=3333\nHOST=file-only\nUNDECLARED=value\n');
+        expect(validateEnv({ PORT: Number, HOST: { type: String, required: false } }, { PORT: '2222' }, envFile))
+            .toEqual({ PORT: 2222 });
+        expect(process.env.UNDECLARED).toBeUndefined();
+        expect(validateEnv({ PORT: Number }, { PORT: '2222' }, path.join(directory(), 'missing')))
+            .toEqual({ PORT: 2222 });
+    });
 
-    expect(result).toEqual({ PORT: 4000, NODE_ENV: 'development' });
-  });
+    it('loads the default file with process values taking precedence', () => {
+        const envFile = file('PORT=3000\nDEBUG=false\nUNDECLARED=value\n');
+        jest.spyOn(process, 'cwd').mockReturnValue(path.dirname(envFile));
+        process.env.PORT = '9000';
+        expect(validateEnv({ PORT: Number, DEBUG: Boolean })).toEqual({ PORT: 9000, DEBUG: false });
+        expect(process.env).toEqual({ PORT: '9000' });
+    });
 
-  it('should validate required fields and exit process if missing', () => {
-    const mockEnvPath = '/test/path/.env';
-    (path.resolve as jest.Mock).mockReturnValue(mockEnvPath);
-    (fs.existsSync as jest.Mock).mockReturnValue(true);
-    (dotenv.config as jest.Mock).mockReturnValue({ parsed: {} });
-    process.env = {};
+    it('leaves the process unchanged on validation failure', () => {
+        const envFile = file('PORT=3000\nUNDECLARED=value\n');
+        expect(() => validateEnv({ MISSING: String }, envFile)).toThrow('Missing required field: MISSING');
+        expect(process.env).toEqual({});
+    });
 
-    const schema = { PORT: Number, NODE_ENV: String };
+    it('isolates repeated file reads and does not inject defaults', () => {
+        const first = file('PORT=3000\n');
+        const second = file('PORT=4000\n');
+        expect(validateEnv({ PORT: Number }, first)).toEqual({ PORT: 3000 });
+        expect(validateEnv({ PORT: Number }, second)).toEqual({ PORT: 4000 });
+        expect(validateEnv({ DEBUG: { type: Boolean, default: false } }, {})).toEqual({ DEBUG: false });
+        expect(process.env).toEqual({});
+    });
 
-    validateEnv(schema);
+    it('allows a missing implicit file and an explicitly selected empty file', () => {
+        jest.spyOn(process, 'cwd').mockReturnValue(directory());
+        process.env.PORT = '9000';
+        expect(validateEnv({ PORT: Number })).toEqual({ PORT: 9000 });
+        expect(validateEnv({ PORT: Number }, file(''))).toEqual({ PORT: 9000 });
+    });
 
-    expect(mockConsoleError).toHaveBeenCalledWith('Environment validation failed:');
-    expect(mockConsoleError).toHaveBeenCalledWith('- Missing required field: PORT');
-    expect(mockConsoleError).toHaveBeenCalledWith('- Missing required field: NODE_ENV');
-    expect(process.exit).toHaveBeenCalledWith(1);
-  });
+    it('does not let process values conceal an explicit missing file or read error', () => {
+        process.env.PORT = '9000';
+        expect(() => validateEnv({ PORT: Number }, path.join(directory(), 'missing.env'))).toThrow(expect.objectContaining({
+            message: expect.stringContaining('ENOENT'),
+            cause: expect.objectContaining({ code: 'ENOENT' }),
+        }));
+        expect(() => validateEnv({ PORT: Number }, directory())).toThrow(/EISDIR/);
+        expect(console.error).not.toHaveBeenCalled();
+    });
 
-  it('should use default values if available when environment variable is missing', () => {
-    const schema = {
-      PORT: { type: Number, required: false, default: 8080 },
-      NODE_ENV: String,
-      DEBUG: { type: Boolean, required: false, default: false },
-    };
+    it('only ignores missing implicit files, not other read errors', () => {
+        const fixture = directory();
+        fs.mkdirSync(path.join(fixture, '.env'));
+        jest.spyOn(process, 'cwd').mockReturnValue(fixture);
+        expect(() => validateEnv({}, undefined)).toThrow(/EISDIR/);
+    });
 
-    process.env.NODE_ENV = 'production';
+    it.each([null, [], true, 1] as const)('rejects invalid configuration roots: %p', config => {
+        expect(() => validateEnv({}, config as unknown as Record<string, unknown>)).toThrow(/configuration must be an object/);
+    });
 
-    const result = validateEnv(schema);
+    it('rejects non-string file paths from untyped callers', () => {
+        expect(() => Reflect.apply(validateEnv, undefined, [{}, undefined, 123])).toThrow(/file path must be a string/);
+    });
+});
 
-    expect(result).toEqual({ PORT: 8080, NODE_ENV: 'production', DEBUG: false });
-  });
+describe('schemas and object keys', () => {
+    it.each([
+        { VALUE: null }, { VALUE: [] }, { VALUE: Date }, { VALUE: { type: Date, required: false } },
+        { VALUE: { type: Number, required: 'false' } },
+        { VALUE: { type: Number, required: false, default: 'oops' } },
+        { VALUE: { type: Number, default: NaN } },
+        { VALUE: { type: Boolean, default: 'false' } },
+        { VALUE: { type: String, default: 1 } },
+    ])('rejects invalid definitions even when input is present: %p', schema => {
+        expect(() => validateEnv(schema as unknown as EnvSchema, { VALUE: 'present' })).toThrow(/VALUE/);
+    });
 
-  it('should throw an error for invalid number type', () => {
-    process.env.PORT = 'invalid_number';
-    process.env.NODE_ENV = 'production';
+    it.each([null, [], 1] as const)('rejects invalid schema roots: %p', schema => {
+        expect(() => validateEnv(schema as unknown as EnvSchema, {})).toThrow(/schema must be an object/);
+    });
 
-    const schema = { PORT: Number, NODE_ENV: String };
+    it('does not inherit field options or source values', () => {
+        const inheritedOptions = Object.create({ type: String }) as unknown;
+        expect(() => validateEnv({ VALUE: inheritedOptions } as EnvSchema, {})).toThrow(/unsupported type/);
+        const inheritedSource = Object.create({ VALUE: 'inherited' }) as Record<string, unknown>;
+        expect(() => validateEnv({ VALUE: String }, inheritedSource)).toThrow('Missing required field: VALUE');
+    });
 
-    validateEnv(schema);
+    it.each(['constructor', 'toString', '__proto__'])('safely handles %s', key => {
+        const schema = Object.fromEntries([[key, String]]);
+        expect(() => validateEnv(schema, {})).toThrow(`Missing required field: ${key}`);
+        const result = validateEnv(schema, Object.fromEntries([[key, 'value']]));
+        expect(Object.prototype.hasOwnProperty.call(result, key)).toBe(true);
+        expect(result[key]).toBe('value');
+        expect(Object.getPrototypeOf(result)).toBe(Object.prototype);
+    });
 
-    expect(console.error).toHaveBeenCalledWith('Environment validation failed:');
-    expect(console.error).toHaveBeenCalledWith('- PORT should be a number');
-    expect(process.exit).toHaveBeenCalledWith(1);
-  });
-
-  it('should validate boolean environment variables correctly', () => {
-    process.env.DEBUG = 'true';
-    process.env.NODE_ENV = 'development';
-
-    const schema = { DEBUG: Boolean, NODE_ENV: String };
-    const result = validateEnv(schema);
-
-    expect(result).toEqual({ DEBUG: true, NODE_ENV: 'development' });
-  });
-
-  it('should throw an error for invalid boolean type', () => {
-    process.env.DEBUG = 'not_a_boolean';
-    process.env.NODE_ENV = 'development';
-
-    const schema = { DEBUG: Boolean, NODE_ENV: String };
-
-    validateEnv(schema);
-
-    expect(mockConsoleError).toHaveBeenCalledWith('Environment validation failed:');
-    expect(mockConsoleError).toHaveBeenCalledWith('- DEBUG should be a boolean');
-    expect(process.exit).toHaveBeenCalledWith(1);
-  });
-
-  it('should handle missing env file and fall back to process.env without error', () => {
-    (fs.existsSync as jest.Mock).mockReturnValue(false);
-
-    process.env.PORT = '3000';
-    process.env.NODE_ENV = 'production';
-
-    const schema = { PORT: Number, NODE_ENV: String };
-    const result = validateEnv(schema, undefined);
-
-    expect(result).toEqual({ PORT: 3000, NODE_ENV: 'production' });
-  });
-
-  it('should throw an error for unsupported types', () => {
-    (fs.existsSync as jest.Mock).mockReturnValue(false);
-    process.env.UNSUPPORTED = 'any';
-
-    const schema = {
-      UNSUPPORTED: Date as any,
-    };
-    validateEnv(schema);
-
-    expect(mockConsoleError).toHaveBeenCalledWith('Environment validation failed:');
-    expect(mockConsoleError).toHaveBeenCalledWith('- UNSUPPORTED has an unsupported type');
-    expect(process.exit).toHaveBeenCalledWith(1);
-  });
-  
-  it('should throw an error for unsupported types while config provided for NestJS', () => {
-    (fs.existsSync as jest.Mock).mockReturnValue(false);
-    process.env.UNSUPPORTED = 'any';
-
-    const schema = {
-      UNSUPPORTED: Date as any,
-    };
-
-    const config = {};
-
-    expect(() => validateEnv(schema, config)).toThrow('Environment validation failed:\n- UNSUPPORTED has an unsupported type');
-  });
+    it('validates non-enumerable schema fields and rejects symbol keys', () => {
+        const schema = Object.defineProperty({}, 'VALUE', { value: String }) as EnvSchema;
+        expect(validateEnv(schema, { VALUE: 'value' })).toEqual({ VALUE: 'value' });
+        expect(() => validateEnv({ [Symbol('VALUE')]: String }, {})).toThrow(/keys must be strings/);
+    });
 });

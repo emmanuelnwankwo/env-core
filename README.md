@@ -94,6 +94,8 @@ The `envSchema` object defines the structure and validation rules for your envir
 
 Supported types: `String`, `Number`, `Boolean`
 
+A valid default makes a field optional unless `required: true` is explicit. Defaults must match their constructor and are validated even when input is present. `default: undefined` behaves like no default. Missing values and `undefined` are distinct from empty strings and `null`; empty strings remain present values, while `null` is invalid.
+
 ## Usage Examples
 
 ### Express.js
@@ -148,11 +150,21 @@ If the validation fails, NestJS will not initialize, and a descriptive error mes
 
 ## API Reference
 `validateEnv(schema: EnvSchema, envPath?: string)`
+
+`validateEnv(schema: EnvSchema, config: Record<string, unknown>, envPath?: string)`
+
 - schema: An object that defines the required environment variables and their types. Supported types are String, Number, and Boolean.
 - `envPath` (optional): A string specifying a custom .env file to load (e.g., 'test.env').
+- `config`: An explicit configuration object used as the sole source, including already typed numbers and booleans. No file or process values are merged into it; a third file argument is ignored.
+
+Without `config`, existing process values take precedence over file values. A missing default `.env` is allowed; missing explicit files and file read errors throw. Validation leaves `process.env` unchanged.
 
 #### Returns
-A function that takes the envConfig (defaults to process.env) and validates it against the schema. If validation passes, the function returns the validated config. If validation fails, an error is thrown.
+The validated configuration object, containing schema fields only. Missing optional fields are omitted and their inferred types include `undefined`. If validation fails, an error is thrown.
+
+The package root also exports the types `EnvSchema`, `EnvSchemaItem<T>`, and `ValidatedEnv<T>`.
+
+**Unreleased migration notes:** Explicit configuration objects are now honored, process values override files, and validation no longer injects file values into `process.env`. Validation failures now throw instead of logging and exiting; callers own reporting and exit status. These behavior changes require compatible release versioning before publication.
 
 ## Error Handling
 If validation fails, the package throws an error with detailed information, including:
@@ -163,7 +175,6 @@ If validation fails, the package throws an error with detailed information, incl
 ```yml
 Environment validation failed:
 - Missing required field: NODE_ENV
-- Missing required field: DEBUG
 - DEBUG should be a boolean
 ```
 

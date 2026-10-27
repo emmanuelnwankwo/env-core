@@ -51,9 +51,24 @@ describe('packed package', () => {
 
         const source = `import { strict as assert } from 'node:assert';
 import { validateEnv } from 'env-core';
-process.env.PACK_PORT = '3000';
-const port: number = validateEnv({ PACK_PORT: Number }).PACK_PORT;
+import type { EnvSchema, EnvSchemaItem, ValidatedEnv } from 'env-core';
+const schema = { PACK_PORT: Number } satisfies EnvSchema;
+const item: EnvSchemaItem<number> = { type: Number };
+assert.equal(item.type, Number);
+process.env.PACK_PORT = '9000';
+const result: ValidatedEnv<typeof schema> = validateEnv(schema, { PACK_PORT: '3000' });
+const port: number = result.PACK_PORT;
 assert.equal(port, 3000);
+assert.equal(process.env.PACK_PORT, '9000');
+const flags = validateEnv({ DEBUG: { type: Boolean, default: false }, LABEL: { type: String, required: false } }, {});
+const enabled: boolean = flags.DEBUG;
+const label: string | undefined = flags.LABEL;
+assert.equal(enabled, false);
+assert.equal(label, undefined);
+export function booleanSchema(defaultValue: boolean) {
+    const field: EnvSchemaItem<boolean> = { type: Boolean, default: defaultValue };
+    return { DEBUG: field };
+}
 `;
         writeFileSync(path.join(consumer, 'index.cts'), source);
         writeFileSync(path.join(consumer, 'index.mts'), source + `
@@ -63,6 +78,7 @@ assert.equal(dynamic.validateEnv, validateEnv);
         writeFileSync(path.join(consumer, 'tsconfig.json'), JSON.stringify({
             compilerOptions: {
                 strict: true,
+                declaration: true,
                 target: 'ES2020',
                 module: 'Node16',
                 moduleResolution: 'Node16',
