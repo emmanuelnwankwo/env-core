@@ -109,7 +109,7 @@ function validateEnv<T extends EnvSchema>(schema: T, envFile?: string): Validate
  * @param {T} schema - An object describing the expected environment variables and their types.
  *                     Each key in the schema can be either a constructor (String, Number, Boolean)
  *                     or an object with `type`, `required`, and `default` properties.
- * @param {Record<string, any>} [config] - A configuration object containing environment variables for NestJS
+ * @param {Record<string, unknown>} [config] - A configuration object containing environment variables for NestJS
  * @param {string} [envFile] - The name of the environment file to load. Defaults to '.env' if not provided.
  * 
  * @throws {Error} Throws an error if required environment variables are missing or if any validation fails.
@@ -121,17 +121,16 @@ function validateEnv<T extends EnvSchema>(schema: T, envFile?: string): Validate
  * }),
  * 
  */
-function validateEnv<T extends EnvSchema>(schema: T, config: Record<string, any>, envFile?: string): ValidatedEnv<T>;
+function validateEnv<T extends EnvSchema>(schema: T, config: Record<string, unknown>, envFile?: string): ValidatedEnv<T>;
 
-function validateEnv<T extends EnvSchema>(schema: T, configOrEnvFile?: Record<string, any> | string, envFile?: string): ValidatedEnv<T> {
+function validateEnv<T extends EnvSchema>(schema: T, configOrEnvFile?: Record<string, unknown> | string, envFile?: string): ValidatedEnv<T> {
     envFile = (typeof configOrEnvFile === 'string') ? configOrEnvFile : envFile;
     const env: NodeJS.ProcessEnv = loadEnvFile(envFile);
-    const envConfig = {} as ValidatedEnv<T>;
+    const envConfig: Record<string, unknown> = {};
     const errors: string[] = [];
 
     for (const [key, schemaValue] of Object.entries(schema)) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const schemaItem: EnvSchemaItem<any> = typeof schemaValue === 'function'
+        const schemaItem: EnvSchemaItem<unknown> = typeof schemaValue === 'function'
             ? { type: schemaValue, required: true }
             : { ...schemaValue, required: schemaValue.required !== false };
 
@@ -139,7 +138,7 @@ function validateEnv<T extends EnvSchema>(schema: T, configOrEnvFile?: Record<st
 
         const validatedValue = validateEnvVariable(key, envValue, schemaItem, errors);
         if (validatedValue !== undefined) {
-            envConfig[key as keyof T] = validatedValue;
+            envConfig[key] = validatedValue;
         }
     }
 
@@ -154,7 +153,7 @@ function validateEnv<T extends EnvSchema>(schema: T, configOrEnvFile?: Record<st
         }
     }
 
-    return envConfig;
+    return envConfig as ValidatedEnv<T>;
 };
 
 export { validateEnv };

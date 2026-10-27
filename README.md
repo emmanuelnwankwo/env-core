@@ -11,6 +11,24 @@
 - Minimal dependencies
 - Works with both ESM (`import`) and CommonJS (`require`)
 
+## Installation
+
+```sh
+pnpm add env-core
+```
+
+## Development
+
+Use Node.js 22.13 or newer and the pnpm version pinned in `package.json`. The package's consumer runtime requirement is listed separately in `engines.node`.
+
+```sh
+pnpm install --frozen-lockfile
+pnpm run build
+pnpm run typecheck
+pnpm run lint
+pnpm test --runInBand
+```
+
 ## Usage
 ### Define the Environment Schema
 First, define a schema for your environment variables. Here are three different use cases for how you can set up your `envSchema`:

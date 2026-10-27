@@ -8,7 +8,7 @@ type SchemaType = typeof String | typeof Number | typeof Boolean;
 
 type EnvSchemaValue<T> = SchemaType | EnvSchemaItem<T>;
 
-type EnvSchema = Record<string, EnvSchemaValue<any>>;
+type EnvSchema = Record<string, EnvSchemaValue<unknown>>;
 
 type InferSchemaType<T> = T extends typeof String ? string :
     T extends typeof Number ? number :
