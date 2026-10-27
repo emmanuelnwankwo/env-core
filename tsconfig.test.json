@@ -5,6 +5,7 @@
     "isolatedModules": true
   },
   "include": [
-    "test/**/*"
+    "test/**/*",
+    "scripts/**/*"
   ]
 }

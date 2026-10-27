@@ -176,6 +176,9 @@ importers:
       '@jest/globals':
         specifier: ^30.5.2
         version: 30.5.2(supports-color@8.1.1)
+      '@nubjs/nub':
+        specifier: 0.9.7
+        version: 0.9.7
       '@types/jest':
         specifier: ^30.0.0
         version: 30.0.0
@@ -188,6 +191,9 @@ importers:
       '@typescript-eslint/parser':
         specifier: ^8.72.1
         version: 8.72.1(eslint@10.13.0(supports-color@8.1.1))(supports-color@8.1.1)(typescript@6.0.3)
+      '@yarnpkg/cli-dist':
+        specifier: 4.18.1
+        version: 4.18.1
       eslint:
         specifier: ^10.13.0
         version: 10.13.0(supports-color@8.1.1)
@@ -197,9 +203,6 @@ importers:
       jest:
         specifier: ^30.5.2
         version: 30.5.2(@types/node@22.20.5)(supports-color@8.1.1)
-      jsr:
-        specifier: ^0.14.3
-        version: 0.14.3
       ts-jest:
         specifier: ^29.4.15
         version: 29.4.15(@babel/core@7.29.7(supports-color@8.1.1))(@jest/transform@30.5.2(supports-color@8.1.1))(@jest/types@30.5.1)(babel-jest@30.5.2(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(esbuild@0.28.2)(jest-util@30.5.1)(jest@30.5.2(@types/node@22.20.5)(supports-color@8.1.1))(typescript@6.0.3)
@@ -209,6 +212,12 @@ importers:
       typescript:
         specifier: ~6.0.3
         version: 6.0.3
+      typescript-5:
+        specifier: npm:typescript@5.6.3
+        version: typescript@5.6.3
+      yarn-classic:
+        specifier: npm:yarn@1.22.22
+        version: yarn@1.22.22
 
 packages:
 
@@ -733,6 +742,55 @@ packages:
       '@emnapi/core': ^1.7.1 || 2.0.0-beta.2
       '@emnapi/runtime': ^1.7.1 || 2.0.0-beta.2
 
+  '@nubjs/nub-darwin-arm64@0.9.7':
+    resolution: {integrity: sha512-+lQLWMsLxBJf1Y9U9zCG9qM/l0gqi7IlVLL7Az7MIYFkMgf5ui/aeXHsEN9IdCLGlpA4FgGeI2S2NLaACZkjsA==}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@nubjs/nub-darwin-x64@0.9.7':
+    resolution: {integrity: sha512-UQ9Xmt/+4YNnmRil0XRGu4lkXdjRC9Qz/KbNrUn+uvvBoHOaeN60+s+rNWZX77vqAEpHqsITGewUakotvsD12w==}
+    cpu: [x64]
+    os: [darwin]
+
+  '@nubjs/nub-linux-arm64-musl@0.9.7':
+    resolution: {integrity: sha512-E/2+h5fIeSJv8ce9h8KJ4RS2DFyOIXptZhEaYatbTcT1Yp7nQNR/ZzQR5u7heo8Pv8c8Gdxmm4xv51sl+fx4ug==}
+    cpu: [arm64]
+    os: [linux]
+    libc: [musl]
+
+  '@nubjs/nub-linux-arm64@0.9.7':
+    resolution: {integrity: sha512-xz0AUkjwP1oQskAqZx3oDqQGNXzp4gc6OLm+Mv4zDOLLOyDIRBz+Vkjfk7wMxAzICbs2vCdrjbf1OE+qbVoUeA==}
+    cpu: [arm64]
+    os: [linux]
+    libc: [glibc]
+
+  '@nubjs/nub-linux-x64-musl@0.9.7':
+    resolution: {integrity: sha512-gWNeICQ814OU8E50VY/R1Q5ojXRrCd3TV5YouY8iznOY0+2TOkr96aquiDJ6LBmK8bp/zAt9GfCEZVDrdWPAuw==}
+    cpu: [x64]
+    os: [linux]
+    libc: [musl]
+
+  '@nubjs/nub-linux-x64@0.9.7':
+    resolution: {integrity: sha512-ts5tYSyUe7/fXFIXyloK4VX4ypBOclVkaW7tv7Bem4tj98i6+OKjHWmRyekTWDg9Dy2rE7vRoFqBr8xJf2ywXw==}
+    cpu: [x64]
+    os: [linux]
+    libc: [glibc]
+
+  '@nubjs/nub-win32-arm64@0.9.7':
+    resolution: {integrity: sha512-/rEDhYh2nZ/Vh6sHG6cT6OOZhxA6J1HdQvV+RjCt/LSonCJRhO9CucJICGtFxrOIFqZL3qpbig3/+8PsAoslhQ==}
+    cpu: [arm64]
+    os: [win32]
+
+  '@nubjs/nub-win32-x64@0.9.7':
+    resolution: {integrity: sha512-qTJuSFOl+GqHiDLZwvL3hbyunO9hFfW3CMglqIEe/7ywEsT3sbX2eax2+wFNrB8Hw5NR3sJEELkRc07XMHDx+Q==}
+    cpu: [x64]
+    os: [win32]
+
+  '@nubjs/nub@0.9.7':
+    resolution: {integrity: sha512-VKK51K/E+dig39iSWs4lGVYcPPJdbWMBWZ4YK9XU7AW7XVS5D6aIh5F76LuCjoVNryXTL2nueDUbnKYMfX6qMg==}
+    engines: {node: '>=18.19.0'}
+    hasBin: true
+
   '@parcel/watcher-android-arm64@2.6.0':
     resolution: {integrity: sha512-trgpLSCKRC/huFjXX/Smh+0sWe4+YtKfktIToiMl59ghz7z+qkH6kMvNnUbLyRs9N11t8l4svSCs1+5B3rOAhA==}
     engines: {node: '>= 10.0.0'}
@@ -1061,6 +1119,11 @@ packages:
     resolution: {integrity: sha512-nAB74NfSNKknqQ1RrYj6uz8FcXEomu/MATJZxh/x+BArzN2U3JbOYC0APYzUIGhVY3m5hRxA8VPNdPBoG8txlA==}
     cpu: [x64]
     os: [win32]
+
+  '@yarnpkg/cli-dist@4.18.1':
+    resolution: {integrity: sha512-EH+A4TxAtBWXKE0DGQxW9Bo9crXHLJ73mfxjTQJuv8XonNWWTpei8BQ5JjczHJNU9GROTycwMFn8iOvRIZXUcA==}
+    engines: {node: '>=18.12.0'}
+    hasBin: true
 
   acorn-jsx@5.3.2:
     resolution: {integrity: sha512-rq9s+JNhf0IChjtDXxllJ7g41oZk5SlXtp0LHwyA5cejwn7vKmKp4pPri6YEePv2PU65sAsegbXtIinmDFDXgQ==}
@@ -1675,10 +1738,6 @@ packages:
     engines: {node: '>=6'}
     hasBin: true
 
-  jsr@0.14.3:
-    resolution: {integrity: sha512-PGxnDepx7vwJoZQe2SHbyBiFfpGwsOKmX4kn/wZZqfMafV7fjXqTxSaX6lp9QHYkSTLKkER+P/wmrZY3gVJNzg==}
-    hasBin: true
-
   keyv@5.6.0:
     resolution: {integrity: sha512-CYDD3SOtsHtyXeEORYRx2qBtpDJFjRTGXUtmNEMGyzYOKj1TE3tycdlho7kA1Ufx9OYWZzg52QFBGALTirzDSw==}
 
@@ -1766,10 +1825,6 @@ packages:
   node-releases@2.0.60:
     resolution: {integrity: sha512-OmO8+GM1JUZqXET720VrJCwkjUCXmCMQm0Z3UDDRbfNLHS4NEAvY60j5jiFv0tkKw2PNNlqOLhahVmwJIOLDIQ==}
     engines: {node: '>=18'}
-
-  node-stream-zip@1.16.0:
-    resolution: {integrity: sha512-ObaRrRoR8T68wF6suxHd7R4XQNamij6ZQHrwG7Dx1D2zeHcDNLsIOBcWrIwtDm7AsCXBguaPHgXhcjxDa2szrg==}
-    engines: {node: '>=0.12.0'}
 
   normalize-path@3.0.0:
     resolution: {integrity: sha512-6eZs5Ls3WtCisHWp9S2GUy8dqkpGi4BVSz3GaqiE6ezub0512ESztXUwUB6C6IKbQkY2Pnb/mD4WYojCRwcwLA==}
@@ -1885,10 +1940,6 @@ packages:
   resolve-from@5.0.0:
     resolution: {integrity: sha512-qYg9KP24dD5qka9J47d0aVky0N+b4fTU89LN9iDnjB5waksiC49rvMB0PrUJQGoTmH50XPiqOvAjDfaijGxYZw==}
     engines: {node: '>=8'}
-
-  semiver@1.1.0:
-    resolution: {integrity: sha512-QNI2ChmuioGC1/xjyYwyZYADILWyW6AmS1UH6gDj/SFUUUS4MBAWs/7mxnkRPc/F4iHezDP+O8t0dO8WHiEOdg==}
-    engines: {node: '>=6'}
 
   semver@6.3.1:
     resolution: {integrity: sha512-BR7VvDCVHO+q2xBEWskxS6DJE1qRnb7DxzUrogb71CWoSficBxYsiAGd+Kl0mmq/MprG9yArRkyrQxTO6XjMzA==}
@@ -2038,6 +2089,11 @@ packages:
     resolution: {integrity: sha512-TeTSQ6H5YHvpqVwBRcnLDCBnDOHWYu7IvGbHT6N8AOymcr9PJGjc1GTtiWZTYg0NCgYwvnYWEkVChQAr9bjfwA==}
     engines: {node: '>=16'}
 
+  typescript@5.6.3:
+    resolution: {integrity: sha512-hjcS1mhfuyi4WW8IWtjP7brDrG2cuDZukyrYrSauoXGNgx0S7zceP07adYkJycEr56BOUTNPzbInooiN3fn1qw==}
+    engines: {node: '>=14.17'}
+    hasBin: true
+
   typescript@6.0.3:
     resolution: {integrity: sha512-y2TvuxSZPDyQakkFRPZHKFm+KKVqIisdg9/CZwm9ftvKXLP8NRWj38/ODjNbr43SsoXqNuAisEf1GdCxqWcdBw==}
     engines: {node: '>=14.17'}
@@ -2105,6 +2161,11 @@ packages:
   yargs@17.7.3:
     resolution: {integrity: sha512-GZtjxm/J/4TSxuL3FNYjCmLktBTnIw/rVmKSIyKeYAZpmJB2ig9VauCC5xsa82GNKVKDAqpOn3KVzNt0zmrU0g==}
     engines: {node: '>=12'}
+
+  yarn@1.22.22:
+    resolution: {integrity: sha512-prL3kGtyG7o9Z9Sv8IPfBNrWTDmXB4Qbes8A9rEzt6wkJV8mUvoirjU0Mp3GGAU06Y0XQyA3/2/RQFVuK7MTfg==}
+    engines: {node: '>=4.0.0'}
+    hasBin: true
 
   yocto-queue@0.1.0:
     resolution: {integrity: sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q==}
@@ -2689,6 +2750,41 @@ snapshots:
       '@tybys/wasm-util': 0.10.4
     optional: true
 
+  '@nubjs/nub-darwin-arm64@0.9.7':
+    optional: true
+
+  '@nubjs/nub-darwin-x64@0.9.7':
+    optional: true
+
+  '@nubjs/nub-linux-arm64-musl@0.9.7':
+    optional: true
+
+  '@nubjs/nub-linux-arm64@0.9.7':
+    optional: true
+
+  '@nubjs/nub-linux-x64-musl@0.9.7':
+    optional: true
+
+  '@nubjs/nub-linux-x64@0.9.7':
+    optional: true
+
+  '@nubjs/nub-win32-arm64@0.9.7':
+    optional: true
+
+  '@nubjs/nub-win32-x64@0.9.7':
+    optional: true
+
+  '@nubjs/nub@0.9.7':
+    optionalDependencies:
+      '@nubjs/nub-darwin-arm64': 0.9.7
+      '@nubjs/nub-darwin-x64': 0.9.7
+      '@nubjs/nub-linux-arm64': 0.9.7
+      '@nubjs/nub-linux-arm64-musl': 0.9.7
+      '@nubjs/nub-linux-x64': 0.9.7
+      '@nubjs/nub-linux-x64-musl': 0.9.7
+      '@nubjs/nub-win32-arm64': 0.9.7
+      '@nubjs/nub-win32-x64': 0.9.7
+
   '@parcel/watcher-android-arm64@2.6.0':
     optional: true
 
@@ -2981,6 +3077,8 @@ snapshots:
 
   '@unrs/resolver-binding-win32-x64-msvc@1.12.2':
     optional: true
+
+  '@yarnpkg/cli-dist@4.18.1': {}
 
   acorn-jsx@5.3.2(acorn@8.19.0):
     dependencies:
@@ -3798,11 +3896,6 @@ snapshots:
 
   json5@2.2.3: {}
 
-  jsr@0.14.3:
-    dependencies:
-      node-stream-zip: 1.16.0
-      semiver: 1.1.0
-
   keyv@5.6.0:
     dependencies:
       '@keyv/serialize': 1.1.1
@@ -3869,8 +3962,6 @@ snapshots:
   node-int64@0.4.0: {}
 
   node-releases@2.0.60: {}
-
-  node-stream-zip@1.16.0: {}
 
   normalize-path@3.0.0: {}
 
@@ -3972,8 +4063,6 @@ snapshots:
       resolve-from: 5.0.0
 
   resolve-from@5.0.0: {}
-
-  semiver@1.1.0: {}
 
   semver@6.3.1: {}
 
@@ -4097,6 +4186,8 @@ snapshots:
 
   type-fest@4.41.0: {}
 
+  typescript@5.6.3: {}
+
   typescript@6.0.3: {}
 
   uglify-js@3.19.3:
@@ -4187,5 +4278,7 @@ snapshots:
       string-width: 4.2.3
       y18n: 5.0.8
       yargs-parser: 21.1.1
+
+  yarn@1.22.22: {}
 
   yocto-queue@0.1.0: {}
