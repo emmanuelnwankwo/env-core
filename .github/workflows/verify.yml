@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
         node: [22.x, 24.x, 26.x]
@@ -30,7 +30,7 @@ jobs:
       - run: pnpm exec nub run --node test --runInBand
 
   package:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       RELEASE_VERSION: ${{ inputs.release-version }}
     steps:
@@ -56,7 +56,7 @@ jobs:
 
   consumers:
     needs: package
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
         include:
@@ -91,7 +91,7 @@ jobs:
           CONSUMER_NODE: ${{ steps.runtime.outputs.path }}
 
   jsr:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: pnpm/action-setup@v6.1.0
