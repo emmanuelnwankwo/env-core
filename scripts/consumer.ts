@@ -19,6 +19,25 @@ export function consumerManager(value: string | undefined): string {
     return value;
 }
 
+export function readmeQuickstart(readme: string): string {
+    const section = /\n## Quickstart\n([\s\S]*?)(?=\n## |$)/.exec(readme)?.[1];
+    const source = /```typescript\n([\s\S]*?)\n```/.exec(section ?? '')?.[1];
+    assert.ok(source, 'README must contain a complete TypeScript quickstart');
+    return source;
+}
+
+export function quickstartConsumer(readme: string): string {
+    return `${readmeQuickstart(readme)}
+import { strict as assert } from 'node:assert';
+assert.equal(port, 3000);
+assert.equal(debug, false);
+assert.throws(() => readConfig({ API_TOKEN: 'PRIVATE_QUICKSTART_TOKEN' }),
+    (error: unknown) => error instanceof Error && error.message.includes('missing_required') && !error.message.includes('PRIVATE_QUICKSTART_TOKEN'));
+assert.throws(() => readConfig({ PORT: 'invalid', API_TOKEN: 'PRIVATE_QUICKSTART_TOKEN' }),
+    (error: unknown) => error instanceof Error && error.message.includes('invalid_value') && !error.message.includes('PRIVATE_QUICKSTART_TOKEN'));
+`;
+}
+
 export function verifyConsumer(manager: string, archive: string, targetNode = process.execPath): void {
     consumerManager(manager);
     const directory = mkdtempSync(path.join(tmpdir(), 'env-core-consumer-'));
@@ -70,6 +89,8 @@ const common = createRequire(import.meta.url)('env-core');
 assert.equal(common.validateEnv, validateEnv);
 assert.equal(common.EnvValidationError, EnvValidationError);
 ` : ''));
+        const quickstart = quickstartConsumer(readFileSync(path.join(root, 'README.md'), 'utf8'));
+        for (const extension of ['cts', 'mts']) writeFileSync(path.join(directory, `quickstart.${extension}`), quickstart);
         writeFileSync(path.join(directory, 'schema.cts'), `import type { EnvSchema } from 'env-core';
 const schema = { PORT: { type: Number, strict: true, min: 1, default: 3210 },
 TOKEN: { type: String, default: 'PRIVATE_TOKEN', sensitive: true } } satisfies EnvSchema;
@@ -86,7 +107,7 @@ module.exports = schema;
                 run(process.execPath, [resolve(`${compiler}/bin/tsc`), '-p', '.']);
             }
         } else {
-            for (const filename of ['index.cts', 'index.mts', 'schema.cts']) {
+            for (const filename of ['index.cts', 'index.mts', 'schema.cts', 'quickstart.cts', 'quickstart.mts']) {
                 const result = ts.transpileModule(readFileSync(path.join(directory, filename), 'utf8'), {
                     fileName: filename,
                     compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.Node16 },
@@ -94,9 +115,9 @@ module.exports = schema;
                 writeFileSync(path.join(directory, filename.replace(/\.([cm])ts$/, '.$1js')), result.outputText);
             }
         }
-        for (const extension of ['cjs', 'mjs']) {
-            if (yarn) run(targetNode, [yarn, 'node', `index.${extension}`]);
-            else run(targetNode, [`index.${extension}`]);
+        for (const name of ['index', 'quickstart']) for (const extension of ['cjs', 'mjs']) {
+            if (yarn) run(targetNode, [yarn, 'node', `${name}.${extension}`]);
+            else run(targetNode, [`${name}.${extension}`]);
         }
         const cli = yarn ? [yarn, 'env-core'] : [path.join(path.dirname(createRequire(path.join(directory, 'package.json')).resolve('env-core')), 'cli.js')];
         const invoke = (args: string[]): string => execFileSync(targetNode, [...cli, ...args], { cwd: directory, env, encoding: 'utf8', timeout: 15000 });

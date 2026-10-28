@@ -1,7 +1,9 @@
 type SchemaType = StringConstructor | NumberConstructor | BooleanConstructor;
 type EnvValue = string | number | boolean;
+/** returns true for success, false or a message for failure */
 type EnvValidator<T extends EnvValue> = (value: T) => boolean | string;
 
+/** selects explicit file layers and an independent process source */
 interface EnvSourceOptions {
     readonly files: readonly string[];
     readonly override?: boolean;
@@ -24,6 +26,7 @@ type SchemaItem<C extends SchemaType, T> = {
     sensitive?: boolean;
 };
 
+/** keeps field values and callback inputs aligned with their constructor */
 type EnvSchemaItem<T = unknown> = unknown extends T
     ? SchemaItem<StringConstructor, string> | SchemaItem<NumberConstructor, number> | SchemaItem<BooleanConstructor, boolean>
     : T extends string ? SchemaItem<StringConstructor, T>
@@ -50,6 +53,7 @@ type InferType<T> = T extends { type: infer C }
     ? InferSchemaType<C> | MissingValue<T>
     : InferSchemaType<T>;
 
+/** includes undefined for optional fields without a defined default */
 type ValidatedEnv<T extends EnvSchema> = {
     [K in keyof T]: InferType<T[K]>
 };

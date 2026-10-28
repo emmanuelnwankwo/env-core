@@ -3,8 +3,10 @@ export type EnvIssueCode = 'invalid_schema' | 'invalid_config' | 'missing_requir
 
 export interface EnvIssue {
     readonly code: EnvIssueCode;
+    /** absent for schema-wide failures */
     readonly key?: string;
     readonly message: string;
+    /** marks fields whose custom messages are suppressed */
     readonly sensitive?: true;
 }
 
