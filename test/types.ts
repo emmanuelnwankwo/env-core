@@ -1,4 +1,4 @@
-import { EnvValidationError, validateEnv } from '../src/index';
+import { EnvValidationError, loadEnv, validateEnv } from '../src/index';
 import type { EnvSchema, EnvSchemaItem, ValidatedEnv } from '../src/index';
 
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
@@ -18,6 +18,10 @@ type Result = ValidatedEnv<typeof schema>;
 export declare const widened: EnvSchemaItem<number>;
 export declare const optionalDefault: { type: NumberConstructor; required: false; default?: number };
 export declare const booleanItem: EnvSchemaItem<boolean>;
+export const booleanChoices: EnvSchemaItem<boolean> = { type: Boolean, choices: [true, false], default: false };
+export const literalChoices: EnvSchemaItem<'dev' | 'prod'> = { type: String, choices: ['dev', 'prod'] };
+export const numericChoices: EnvSchemaItem<1 | 2> = { type: Number, choices: [1, 2], default: 1 };
+export const mixedChoices: EnvSchemaItem<string | number> = { type: Number, choices: [1, 2] };
 
 export type InferenceAssertions = [
     Assert<Equal<Result['simple'], string>>,
@@ -30,9 +34,13 @@ export type InferenceAssertions = [
     Assert<Equal<ValidatedEnv<{ VALUE: typeof widened }>['VALUE'], number | undefined>>,
     Assert<Equal<ValidatedEnv<{ VALUE: typeof optionalDefault }>['VALUE'], number | undefined>>,
     Assert<Equal<ValidatedEnv<{ VALUE: typeof booleanItem }>['VALUE'], boolean | undefined>>,
+    Assert<Equal<EnvSchemaItem<never>, never>>,
+    Assert<Equal<EnvSchemaItem<Date>, never>>,
+    Assert<Equal<Result, { -readonly [K in keyof Result]: Result[K] }>>,
+    Assert<Equal<ValidatedEnv<{ VALUE: typeof literalChoices }>['VALUE'], string | undefined>>,
 ];
 
-export function inferredOverloads() {
+export function inferredSources() {
     const custom = validateEnv({ PORT: { type: Number, validate: (value: number) => value > 0 } }, { PORT: '3000' });
     const customPort: number = custom.PORT;
     const strict: number = validateEnv({ PORT: { type: Number, strict: true } }, { PORT: '3000' }).PORT;
@@ -40,11 +48,24 @@ export function inferredOverloads() {
     const number: number = result.PORT;
     const boolean: boolean = result.DEBUG;
     const typedBoolean: EnvSchemaItem<boolean> = { type: Boolean, default: boolean };
-    const fromFile: number = validateEnv({ PORT: { type: Number } }, 'test.env').PORT;
+    const fromFile: number = validateEnv({ PORT: Number }, loadEnv({ files: ['test.env'] })).PORT;
+    const mutable = validateEnv(schema, {});
+    mutable.object = 1;
+    mutable.defaulted = true;
+    mutable.optional = undefined;
     return { number, boolean, typedBoolean, fromFile, strict, customPort };
 }
 
 export function rejectedSchemas() {
+    // @ts-expect-error filename loading requires loadEnv
+    validateEnv({ PORT: Number }, 'test.env');
+    // @ts-expect-error the ignored third argument is removed
+    validateEnv({ PORT: Number }, {}, 'test.env');
+    // @ts-expect-error field constructors must match their value type
+    const wrongConstructor: EnvSchemaItem<number> = { type: String };
+    // @ts-expect-error literal choices must stay within the declared union
+    const wrongChoices: EnvSchemaItem<'dev' | 'prod'> = { type: String, choices: ['test'] };
+    validateEnv({ WRONG: wrongConstructor, CHOICES: wrongChoices }, {});
     const typedField: EnvSchemaItem<number> = {
         type: Number,
         validate: value => {

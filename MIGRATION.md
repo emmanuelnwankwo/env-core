@@ -74,6 +74,8 @@ Use `as const satisfies EnvSchema` when retaining field-presence flags in a reus
 
 `EnvSchemaItem<T>` keeps defaults and choices within `T` while callbacks receive the constructor's full primitive type. Homogeneous literal unions, including Boolean choices, work as one field definition. Returned configuration is mutable even when the schema is readonly; no runtime immutability is implied by `as const` on a schema.
 
+Optional field/source options explicitly set to `undefined` are treated as unset, including when TypeScript's `exactOptionalPropertyTypes` is enabled. A defined `default` still determines whether a missing optional value can be returned.
+
 The root exports `EnvSchema`, `EnvSchemaItem`, `EnvValidator`, `ValidatedEnv`, `EnvSourceOptions`, `EnvIssue` and `EnvIssueCode`. CommonJS and native ESM share the same validation functions and `EnvValidationError` class.
 
 ## Application and CLI integration

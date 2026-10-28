@@ -18,10 +18,10 @@ it('aggregates stable, value-free issues while retaining Error compatibility and
     expect(error.name).toBe('EnvValidationError');
     expect(error.issues).toEqual([
         { code: 'missing_required', key: 'MISSING', message: 'Missing required field: MISSING' },
-        { code: 'invalid_type', key: 'PORT', message: 'PORT should be a number' },
+        { code: 'invalid_value', key: 'PORT', message: 'PORT should be a finite decimal number' },
         { code: 'invalid_schema', key: 'BAD', message: 'BAD has an invalid default' },
     ]);
-    expect(error.message).toBe('Environment validation failed:\n- Missing required field: MISSING\n- PORT should be a number\n- BAD has an invalid default');
+    expect(error.message).toBe('Environment validation failed:\n- Missing required field: MISSING\n- PORT should be a finite decimal number\n- BAD has an invalid default');
     expect(JSON.stringify(error)).not.toContain('SECRET');
     expect(error).not.toHaveProperty('data');
 });

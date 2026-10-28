@@ -8,8 +8,8 @@
   "rules": [
     "npm env-core and JSR @nec/env-core expose validateEnv. Use the installed release's documentation; loadEnv, generateEnvExample and CLI commands require 1.3.0 or later.",
     "An explicit configuration object passed to validateEnv is the sole source. Validation never modifies process.env.",
-    "Without a config object, process values override file fallbacks. loadEnv reads explicit files in order; later files win. Its override: true option lets files override process values.",
-    "Number coercion is unchanged unless strict: true is selected. Boolean fields accept typed booleans or the exact strings true and false.",
+    "In v2, validateEnv without config uses only process.env; use loadEnv for files. In v1, omitted config also reads optional .env. loadEnv layers later files over earlier files; process wins unless override: true.",
+    "Numbers are strict by default in v2; strict: false retains legacy coercion. In v1, strict numbers are opt-in. Booleans always accept only typed booleans or exact true/false strings.",
     "Validation callbacks are synchronous and run after built-in checks. Defaults are checked too; missing optional fields skip callbacks.",
     "Report issue codes and keys without values or custom messages. sensitive: true suppresses custom error messages; successful values are unchanged.",
     "CLI JavaScript schemas work on Node 16+. Direct TypeScript schemas require Node 22.18+ native type stripping and erasable syntax. Use repeated --file flags for layers."

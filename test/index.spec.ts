@@ -172,6 +172,7 @@ describe('explicit file layers', () => {
     it('fails explicit missing and unreadable layers with the original cause', () => {
         const first = file('PORT=1000');
         expect(() => loadEnv({ files: [first, path.join(process.cwd(), 'missing')] })).toThrow('ENOENT');
+        expect(() => loadEnv({ files: [directory()] })).toThrow('EISDIR');
         const cause = Object.assign(new Error('private contents'), { code: 'EACCES' });
         jest.spyOn(fs, 'readFileSync').mockImplementation(() => { throw cause; });
         try {
@@ -253,13 +254,22 @@ describe('validation', () => {
 
     it('validates supplied values instead of falling back after an error', () => {
         expect(() => validateEnv({ VALUE: { type: Number, default: 10 } }, { VALUE: 'invalid' }))
-            .toThrow('VALUE should be a number');
+            .toThrow('VALUE should be a finite decimal number');
         expect(validateEnv({ VALUE: { type: Number, default: 10 } }, { VALUE: '20' })).toEqual({ VALUE: 20 });
+    });
+
+    it('treats own undefined as missing while null remains an invalid supplied value', () => {
+        expect(validateEnv({ DEFAULT: { type: Number, default: 0 }, OPTIONAL: { type: Boolean, required: false } },
+            { DEFAULT: undefined, OPTIONAL: undefined })).toEqual({ DEFAULT: 0 });
+        expect(() => validateEnv({ VALUE: { type: Number, required: true, default: 0 } }, { VALUE: undefined }))
+            .toThrow('Missing required field: VALUE');
+        expect(() => validateEnv({ VALUE: { type: Number, default: 0 } }, { VALUE: null }))
+            .toThrow(expect.objectContaining({ issues: [{ code: 'invalid_type', key: 'VALUE', message: expect.any(String) }] }));
     });
 
     it('aggregates errors without logging, exiting, or exposing values', () => {
         expect(() => validateEnv({ MISSING: String, VALUE: Number }, { VALUE: 'TOP_SECRET' }))
-            .toThrow('Environment validation failed:\n- Missing required field: MISSING\n- VALUE should be a number');
+            .toThrow('Environment validation failed:\n- Missing required field: MISSING\n- VALUE should be a finite decimal number');
         expect(() => validateEnv({ MISSING: String })).toThrow('Missing required field: MISSING');
         expect(process.exit).not.toHaveBeenCalled();
         expect(console.error).not.toHaveBeenCalled();
@@ -267,7 +277,7 @@ describe('validation', () => {
 
     it.each([['', 0], [' ', 0], ['Infinity', Infinity], ['-Infinity', -Infinity], ['0x10', 16]] as const)(
         'preserves existing numeric conversion for %j', (input, expected) => {
-            expect(validateEnv({ VALUE: Number }, { VALUE: input }).VALUE).toBe(expected);
+            expect(validateEnv({ VALUE: { type: Number, strict: false } }, { VALUE: input }).VALUE).toBe(expected);
         });
 
     it('preserves an empty string as a present string value', () => {
@@ -293,70 +303,47 @@ assert.equal(caught, true);
 });
 
 describe('sources', () => {
-    it('uses explicit configuration alone and ignores the legacy file argument', () => {
-        process.env.PORT = '1111';
-        process.env.HOST = 'process-only';
-        const envFile = file('PORT=3333\nHOST=file-only\nUNDECLARED=value\n');
-        expect(validateEnv({ PORT: Number, HOST: { type: String, required: false } }, { PORT: '2222' }, envFile))
+    it('uses an explicit object alone without reading files or changing either source', () => {
+        process.env = { PORT: '1111', HOST: 'process-only' };
+        fs.writeFileSync(path.join(process.cwd(), '.env'), 'PORT=3333\nHOST=file-only\n');
+        const read = jest.spyOn(fs, 'readFileSync');
+        const config = Object.freeze({ PORT: '2222' });
+        expect(validateEnv({ PORT: Number, HOST: { type: String, required: false } }, config))
             .toEqual({ PORT: 2222 });
-        expect(process.env.UNDECLARED).toBeUndefined();
-        expect(validateEnv({ PORT: Number }, { PORT: '2222' }, path.join(directory(), 'missing')))
-            .toEqual({ PORT: 2222 });
+        expect(config).toEqual({ PORT: '2222' });
+        expect(process.env).toEqual({ PORT: '1111', HOST: 'process-only' });
+        expect(read).not.toHaveBeenCalled();
     });
 
-    it('loads the default file with process values taking precedence', () => {
-        const envFile = file('PORT=3000\nDEBUG=false\nUNDECLARED=value\n');
-        jest.spyOn(process, 'cwd').mockReturnValue(path.dirname(envFile));
+    it('defaults to process.env without reading an existing .env or resolving cwd', () => {
+        fs.writeFileSync(path.join(process.cwd(), '.env'), 'PORT=3000\nDEBUG=false\n');
         process.env.PORT = '9000';
-        expect(validateEnv({ PORT: Number, DEBUG: Boolean })).toEqual({ PORT: 9000, DEBUG: false });
-        expect(process.env).toEqual({ PORT: '9000' });
-    });
-
-    it('leaves the process unchanged on validation failure', () => {
-        const envFile = file('PORT=3000\nUNDECLARED=value\n');
-        expect(() => validateEnv({ MISSING: String }, envFile)).toThrow('Missing required field: MISSING');
-        expect(process.env).toEqual({});
-    });
-
-    it('isolates repeated file reads and does not inject defaults', () => {
-        const first = file('PORT=3000\n');
-        const second = file('PORT=4000\n');
-        expect(validateEnv({ PORT: Number }, first)).toEqual({ PORT: 3000 });
-        expect(validateEnv({ PORT: Number }, second)).toEqual({ PORT: 4000 });
-        expect(validateEnv({ DEBUG: { type: Boolean, default: false } }, {})).toEqual({ DEBUG: false });
-        expect(process.env).toEqual({});
-    });
-
-    it('allows a missing implicit file and an explicitly selected empty file', () => {
-        jest.spyOn(process, 'cwd').mockReturnValue(directory());
-        process.env.PORT = '9000';
+        const read = jest.spyOn(fs, 'readFileSync');
+        jest.spyOn(process, 'cwd').mockImplementation(() => { throw new Error('unexpected cwd'); });
         expect(validateEnv({ PORT: Number })).toEqual({ PORT: 9000 });
-        expect(validateEnv({ PORT: Number }, file(''))).toEqual({ PORT: 9000 });
+        expect(validateEnv({ PORT: Number }, undefined)).toEqual({ PORT: 9000 });
+        expect(() => validateEnv({ PORT: Number, DEBUG: Boolean })).toThrow('Missing required field: DEBUG');
+        expect(process.env).toEqual({ PORT: '9000' });
+        expect(read).not.toHaveBeenCalled();
     });
 
-    it('does not let process values conceal an explicit missing file or read error', () => {
-        process.env.PORT = '9000';
-        expect(() => validateEnv({ PORT: Number }, path.join(directory(), 'missing.env'))).toThrow(expect.objectContaining({
-            message: expect.stringContaining('ENOENT'),
-            cause: expect.objectContaining({ code: 'ENOENT' }),
-        }));
-        expect(() => validateEnv({ PORT: Number }, directory())).toThrow(/EISDIR/);
-        expect(console.error).not.toHaveBeenCalled();
+    it('rejects removed filename and third-argument forms without reading files or exposing paths', () => {
+        const read = jest.spyOn(fs, 'readFileSync');
+        for (const args of [[{}, 'PRIVATE_PATH'], [{}, {}, 'PRIVATE_PATH'], [{}, undefined, undefined]]) {
+            try {
+                Reflect.apply(validateEnv, undefined, args);
+                throw new Error('expected contract failure');
+            } catch (error) {
+                expect(error).toBeInstanceOf(EnvValidationError);
+                expect((error as EnvValidationError).issues).toEqual([{ code: 'invalid_config', message: expect.any(String) }]);
+                expect((error as Error).message).not.toContain('PRIVATE_PATH');
+            }
+        }
+        expect(read).not.toHaveBeenCalled();
     });
 
-    it('only ignores missing implicit files, not other read errors', () => {
-        const fixture = directory();
-        fs.mkdirSync(path.join(fixture, '.env'));
-        jest.spyOn(process, 'cwd').mockReturnValue(fixture);
-        expect(() => validateEnv({}, undefined)).toThrow(/EISDIR/);
-    });
-
-    it.each([null, [], true, 1] as const)('rejects invalid configuration roots: %p', config => {
+    it.each([null, [], true, 1, 'PRIVATE_PATH'] as const)('rejects invalid configuration roots: %p', config => {
         expect(() => validateEnv({}, config as unknown as Record<string, unknown>)).toThrow(/configuration must be an object/);
-    });
-
-    it('rejects non-string file paths from untyped callers', () => {
-        expect(() => Reflect.apply(validateEnv, undefined, [{}, undefined, 123])).toThrow(/file path must be a string/);
     });
 });
 
