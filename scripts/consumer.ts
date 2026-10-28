@@ -49,6 +49,8 @@ const port: number = values.PORT;
 const debug: boolean = values.DEBUG;
 const label: string | undefined = values.LABEL;
 assert.equal(validateEnv({ PORT: { type: Number, strict: true } }, { PORT: '3e2' }).PORT, 300);
+assert.equal(validateEnv({ PORT: { type: Number, min: 1, max: 65535, integer: true } }, { PORT: '3210' }).PORT, 3210);
+assert.throws(() => validateEnv({ NAME: { type: String, choices: ['prod'] } }, { NAME: 'dev' }), EnvValidationError);
 assert.throws(() => validateEnv({ PORT: { type: Number, strict: true } }, { PORT: ' ' }), EnvValidationError);
 assert.equal(port, 3210);
 assert.equal(debug, false);

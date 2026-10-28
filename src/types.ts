@@ -6,6 +6,13 @@ type SchemaItem<C extends SchemaType, T> = {
     required?: boolean;
     default?: T;
     strict?: C extends NumberConstructor | BooleanConstructor ? boolean : never;
+    min?: C extends NumberConstructor ? number : never;
+    max?: C extends NumberConstructor ? number : never;
+    integer?: C extends NumberConstructor ? boolean : never;
+    minLength?: C extends StringConstructor ? number : never;
+    maxLength?: C extends StringConstructor ? number : never;
+    pattern?: C extends StringConstructor ? RegExp : never;
+    choices?: readonly T[];
 };
 
 type EnvSchemaItem<T = unknown> = unknown extends T

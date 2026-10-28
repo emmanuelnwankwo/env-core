@@ -43,6 +43,14 @@ export function inferredOverloads() {
 }
 
 export function rejectedSchemas() {
+    // @ts-expect-error numeric bounds require Number
+    validateEnv({ NAME: { type: String, min: 1 } }, {});
+    // @ts-expect-error length bounds require String
+    validateEnv({ PORT: { type: Number, minLength: 1 } }, {});
+    // @ts-expect-error choices must match the field type
+    validateEnv({ PORT: { type: Number, choices: ['1'] } }, {});
+    // @ts-expect-error pattern must be a RegExp
+    validateEnv({ NAME: { type: String, pattern: 'x' } }, {});
     // @ts-expect-error strict parsing applies to numbers and booleans
     validateEnv({ LABEL: { type: String, strict: true } }, {});
     // @ts-expect-error strict must be a boolean
