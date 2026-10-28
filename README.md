@@ -2,8 +2,6 @@
 
 `env-core` is a lightweight, type-safe environment variable validation library for Node.js projects.
 
-Install **`env-core` from npm**, or **`@nec/env-core` from JSR**. Both are maintained in [emmanuelnwankwo/env-core](https://github.com/emmanuelnwankwo/env-core) and expose `validateEnv`. The separate T3 package [`@t3-oss/env-core`](https://env.t3.gg/docs/core) exposes `createEnv` and has a different schema format.
-
 ## Features
 - Type-safe environment variable validation
 - Supports `String`, `Number`, and `Boolean` types
@@ -18,6 +16,8 @@ Install **`env-core` from npm**, or **`@nec/env-core` from JSR**. Both are maint
 ```sh
 npm install env-core
 ```
+
+The JSR package is [`@nec/env-core`](https://jsr.io/@nec/env-core).
 
 From 1.3.0, ESM imports use a native `.mjs` entry with matching declarations. It shares the CommonJS runtime, so functions and `EnvValidationError` retain their identity when both module formats are used together.
 
@@ -53,20 +53,7 @@ const debug: boolean = env.DEBUG;
 
 The example returns typed values and reports only error codes and field names on failure. At application startup, replace the sample object with `readConfig(process.env)`. An explicit object is the sole source; it does not load files or modify `process.env`. For file fallbacks, call `validateEnv(schema)` instead: existing process values win over an optional `.env` file.
 
-Use env-core for synchronous validation of primitive server configuration. Its only runtime dependency is dotenv. Async rules, schema-level cross-field rules, secret-manager integrations and automatic browser/client secret isolation are outside its scope. If your existing validator already meets your configuration needs, you can keep it.
-
 See [file layering](#file-layering), [safe templates](#environment-templates), [CLI commands](#cli), and the [Express](#expressjs)/[NestJS](#nestjs) examples for other entry points.
-
-### Versioned documentation
-
-This README follows `main`; it can include changes ahead of the [latest published release](https://github.com/emmanuelnwankwo/env-core/releases/latest). Check your installed version and use its tag's README, such as the [v1.2.0 documentation](https://github.com/emmanuelnwankwo/env-core/blob/v1.2.0/README.md).
-
-| Version | Available interface |
-| --- | --- |
-| 1.2.0 | `validateEnv`, structured errors, opt-in strict parsing, constraints, synchronous custom validators and sensitive diagnostics |
-| 1.3.0 target, pending publication | `loadEnv`, `generateEnvExample`, `env-core check`/`example`, and a native ESM facade with matching declarations |
-
-The quickstart uses the 1.2.0 interface. The 1.3.0 additions on `main` require that release before they can be used from a registry installation.
 
 ## Usage
 ### Define the Environment Schema
@@ -248,7 +235,7 @@ The package root also exports the types `EnvSchema`, `EnvSchemaItem<T>`, and `Va
 
 ### File layering
 
-Requires 1.3.0 or later; see [versioned documentation](#versioned-documentation).
+Requires 1.3.0 or later.
 
 Use `loadEnv` to select explicit sources, then pass its result to `validateEnv`:
 
@@ -266,7 +253,7 @@ Files load in order; later files win. Process values win by default; `override: 
 
 ### Environment templates
 
-Requires 1.3.0 or later; see [versioned documentation](#versioned-documentation).
+Requires 1.3.0 or later.
 
 `generateEnvExample(schema)` returns a string of blank assignments such as `PORT=\nTOKEN=\n`, ready to save as `.env.example`. It includes own string field names in schema order, including non-enumerable fields. It never reads field definitions, defaults, current values, or validator callbacks, so even unmarked secret defaults are omitted.
 
@@ -274,7 +261,7 @@ Names must start with a letter or underscore and contain only letters, digits, a
 
 ### CLI
 
-Requires 1.3.0 or later; see [versioned documentation](#versioned-documentation).
+Requires 1.3.0 or later.
 
 Export a schema as a module default or named `envSchema` export. For CommonJS, use `module.exports = schema`.
 
@@ -328,14 +315,6 @@ DEBUG=true
 
 ## Contributing
 Feel free to submit issues or pull requests if you find bugs or have ideas for improvements.
-
-### Using with coding assistants
-
-You can give your coding assistant this project context when you have chosen env-core:
-
-> Use npm package `env-core` from `emmanuelnwankwo/env-core` (`@nec/env-core` on JSR). Check the installed version and that release's documentation before using an interface. Use `validateEnv` for typed startup configuration, select strict Number parsing when needed, and keep validation callbacks synchronous. Respect object-only input and documented file/process precedence. Report issue codes and keys without logging values or custom messages. Verify successful startup and missing/invalid configuration with the project's tests; use the CLI only when the installed version includes it.
-
-This is optional consumer guidance. It does not install instructions into another project or make every agent load dependency documentation automatically.
 
 ## License
 This package is licensed under the MIT License.
