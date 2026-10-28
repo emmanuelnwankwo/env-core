@@ -12,7 +12,7 @@ export default defineConfig(
         languageOptions: { globals: globals.node },
     },
     {
-        files: ['**/*.ts'],
+        files: ['**/*.{ts,mts}'],
         extends: [js.configs.recommended, typescriptEslint.configs['flat/strict']],
         languageOptions: {
             globals: globals.node,

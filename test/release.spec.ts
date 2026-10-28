@@ -37,8 +37,11 @@ it('binds package contents, version, bytes and source commit before publishing o
     writeFileSync(path.join(root, 'package/package.json'), JSON.stringify(npm));
     writeFileSync(path.join(root, 'package/dist/index.js'), '');
     writeFileSync(path.join(root, 'package/dist/index.d.ts'), '');
+    writeFileSync(path.join(root, 'package/dist/index.mjs'), '');
+    writeFileSync(path.join(root, 'package/dist/index.d.mts'), '');
     const archive = path.join(root, 'env-core-1.1.2.tgz');
-    const pack = (): void => { execFileSync('tar', ['-czf', archive, 'package/package.json', 'package/dist/index.js', 'package/dist/index.d.ts'], { cwd: root }); };
+    const entries = ['package/package.json', ...['index.js', 'index.d.ts', 'index.mjs', 'index.d.mts'].map(file => `package/dist/${file}`)];
+    const pack = (): void => { execFileSync('tar', ['-czf', archive, ...entries], { cwd: root }); };
     pack();
     const metadata = artifactMetadata(root, archive, 'commit');
     expect(() => { verifyMetadata(root, archive, metadata, 'commit'); }).not.toThrow();
@@ -57,7 +60,7 @@ it('binds package contents, version, bytes and source commit before publishing o
     expect(() => artifactMetadata(root, archive, 'commit')).toThrow('entry points');
     writeFileSync(path.join(root, 'package/package.json'), JSON.stringify(npm));
     writeFileSync(path.join(root, 'package/.env'), 'SECRET=value');
-    execFileSync('tar', ['-czf', archive, 'package/package.json', 'package/dist/index.js', 'package/dist/index.d.ts', 'package/.env'], { cwd: root });
+    execFileSync('tar', ['-czf', archive, ...entries, 'package/.env'], { cwd: root });
     expect(() => artifactMetadata(root, archive, 'commit')).toThrow('contents');
 });
 

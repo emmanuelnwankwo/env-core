@@ -46,8 +46,8 @@ function integrity(archive: string): string {
 export function artifactMetadata(root: string, archive: string, commit: string): ArtifactMetadata {
     const version = checkVersions(root);
     const files = execFileSync('tar', ['-tf', archive], { encoding: 'utf8', timeout: 15000 }).trim().split('\n');
-    assert.ok(files.includes('package/dist/index.js') && files.includes('package/dist/index.d.ts'), 'missing package entry points');
-    assert.ok(files.every(file => !file.split('/').includes('..') && /^package\/(?:LICENSE|README\.md|package\.json|dist\/[\w./-]+\.(?:js|ts))$/.test(file)), 'unexpected package contents');
+    assert.ok(['index.js', 'index.d.ts', 'index.mjs', 'index.d.mts'].every(file => files.includes(`package/dist/${file}`)), 'missing package entry points');
+    assert.ok(files.every(file => !file.split('/').includes('..') && /^package\/(?:LICENSE|README\.md|package\.json|dist\/[\w./-]+\.(?:[cm]?[jt]s))$/.test(file)), 'unexpected package contents');
     const packed = JSON.parse(execFileSync('tar', ['-xOf', archive, 'package/package.json'], {
         encoding: 'utf8', timeout: 15000,
     })) as Manifest;
