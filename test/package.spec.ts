@@ -1,8 +1,9 @@
 import { execFileSync, spawnSync } from 'node:child_process';
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from '@jest/globals';
+import { consumerEnvironment } from '../scripts/consumer';
 
 const root = path.resolve(__dirname, '..');
 const fixtures: string[] = [];
@@ -19,7 +20,7 @@ function fixture(): string {
 }
 
 function run(command: string, args: string[], cwd: string): string {
-    return execFileSync(command, args, { cwd, encoding: 'utf8', timeout: 60000 });
+    return execFileSync(command, args, { cwd, env: consumerEnvironment(process.env), encoding: 'utf8', timeout: 60000 });
 }
 
 afterEach(() => {
@@ -51,6 +52,9 @@ describe('packed package', () => {
         const esm = readFileSync(path.join(modules, 'package/dist/index.mjs'), 'utf8');
         expect(esm).toContain('export');
         expect(esm).not.toContain('require(');
+        const cli = path.join(modules, 'package/dist/cli.js');
+        expect(statSync(cli).mode & 0o111).not.toBe(0);
+        expect(readFileSync(cli, 'utf8')).toMatch(/^#!\/usr\/bin\/env node\n/);
 
         const source = `import { strict as assert } from 'node:assert';
 import { EnvValidationError, validateEnv } from 'env-core';
@@ -87,7 +91,17 @@ const common = createRequire(import.meta.url)('env-core');
 assert.equal(common.validateEnv, validateEnv);
 assert.equal(common.EnvValidationError, EnvValidationError);
 assert.equal(dynamic.default, common);
+assert.ok(!Object.keys(createRequire(import.meta.url).cache).some(filename => filename.endsWith('/dist/cli.js')));
 `);
+        const schemaSource = `import type { EnvSchema } from 'env-core';
+const schema = { PACK_PORT: { type: Number, choices: [3000], default: 3000 } } satisfies EnvSchema;
+`;
+        writeFileSync(path.join(consumer, 'schema.cts'), schemaSource + 'module.exports = schema;\n');
+        writeFileSync(path.join(consumer, 'schema.mts'), schemaSource + 'export default schema;\n');
+        writeFileSync(path.join(consumer, 'named.mts'), schemaSource + 'export const envSchema = schema;\n');
+        writeFileSync(path.join(consumer, 'schema.ts'), schemaSource + 'module.exports = schema;\n');
+        const envFile = path.join(consumer, '.env');
+        writeFileSync(envFile, 'PACK_PORT=3000\n');
         writeFileSync(path.join(consumer, 'tsconfig.json'), JSON.stringify({
             compilerOptions: {
                 strict: true,
@@ -105,7 +119,22 @@ assert.equal(dynamic.default, common);
             run(process.execPath, [compiler, '-p', '.', '--module', mode, '--moduleResolution', mode, '--outDir', mode], consumer);
             for (const extension of ['cjs', 'mjs']) {
                 run(process.execPath, [path.join(mode, `index.${extension}`)], consumer);
+                expect(JSON.parse(run(process.execPath, [cli, 'check', '--schema', path.join(mode, `schema.${extension}`),
+                    '--file', envFile, '--no-process-env', '--json'], consumer))).toEqual({ success: true });
             }
+        }
+        for (const schema of ['schema.mts', 'schema.cts', 'schema.ts', 'named.mts']) {
+            expect(run(process.execPath, [cli, 'example', '--schema', schema], consumer)).toBe('PACK_PORT=\n');
+        }
+        for (const [args, status, code] of [
+            [['check', '--schema', 'missing.mjs'], 2, 'schema_load_failed'],
+            [['check', '--schema', 'schema.mts', '--file', 'missing.env'], 2, 'source_load_failed'],
+            [['check', '--schema', 'schema.mts', '--bad-option'], 2, 'invalid_arguments'],
+        ] as const) {
+            const result = spawnSync(process.execPath, [cli, ...args, '--json'], { cwd: consumer, env: consumerEnvironment(process.env), encoding: 'utf8' });
+            expect({ status: result.status, stderr: result.stderr }).toEqual({ status, stderr: '' });
+            expect(JSON.parse(result.stdout)).toMatchObject({ success: false, error: { code } });
+            expect(result.stderr).toBe('');
         }
         run(process.execPath, [compiler, '-p', '.', '--module', 'Preserve', '--moduleResolution', 'Bundler', '--noEmit'], consumer);
     }, 60000);
@@ -115,6 +144,7 @@ assert.equal(dynamic.default, common);
         writeFileSync(path.join(directory, 'src/index.ts'), "export const broken: number = 'broken';\n");
         const result = spawnSync('pnpm', ['pack', '--pack-destination', 'packed'], {
             cwd: directory,
+            env: consumerEnvironment(process.env),
             encoding: 'utf8',
             timeout: 60000,
         });

@@ -5,9 +5,102 @@ import { spawnSync } from 'node:child_process';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { EnvValidationError, generateEnvExample, loadEnv, validateEnv } from '../src/index';
 import type { EnvSchema, EnvSourceOptions } from '../src/types';
+import { runCli } from '../src/cli';
 
 const originalEnv = process.env;
 const fixtures: string[] = [];
+
+describe('CLI', () => {
+    async function invoke(args: string[], schema: EnvSchema = { PORT: Number }) {
+        let stdout = '';
+        let stderr = '';
+        const status = await runCli(args, (text, error) => {
+            if (error) stderr += text;
+            else stdout += text;
+        }, async () => ({ default: schema }));
+        return { status, stdout, stderr };
+    }
+
+    it('shows help without loading a schema', async () => {
+        const load = jest.fn<() => Promise<never>>();
+        const write = jest.fn<(text: string) => void>();
+        expect(await runCli([], write, load)).toBe(0);
+        expect(await runCli(['--help'], write, load)).toBe(0);
+        expect(write.mock.calls[0][0]).toContain('Usage: env-core');
+        expect(load).not.toHaveBeenCalled();
+    });
+
+    it.each([
+        ['unknown'], ['check'], ['check', '--schema'], ['check', '--schema', '--json'],
+        ['check', '--schema', 'schema', '--schema', 'other'], ['check', '--schema', 'schema', '--unknown'],
+        ['check', '--schema', 'schema', '--file'], ['example', '--schema', 'schema', '--json'],
+        ['example', '--schema', 'schema', '--override'], ['example', '--schema', 'schema', '--no-process-env'],
+        ['example', '--schema', 'schema', '--file', 'file'],
+    ])('returns safe usage failures for %j', async (...args) => {
+        const result = await invoke([...args, '--json']);
+        expect(result.status).toBe(2);
+        expect(JSON.parse(result.stdout)).toMatchObject({ success: false, error: { code: 'invalid_arguments' } });
+        expect(result.stderr).toBe('');
+    });
+
+    it('checks process values without revealing successful configuration', async () => {
+        process.env.PORT = '3123';
+        expect(await invoke(['check', '--schema', 'schema', '--json']))
+            .toEqual({ status: 0, stdout: '{"success":true}\n', stderr: '' });
+        expect(await invoke(['check', '--schema', 'schema']))
+            .toEqual({ status: 0, stdout: 'Environment is valid\n', stderr: '' });
+    });
+
+    it('uses ordered file flags, explicit override and isolated process sources', async () => {
+        const first = file('PORT=1000');
+        const second = file('PORT=2000');
+        process.env.PORT = '3000';
+        const schema = { PORT: { type: Number, choices: [2000] } };
+        const args = ['check', '--schema', 'schema', '--file', first, '--file', second];
+        expect((await invoke(args, schema)).status).toBe(1);
+        expect((await invoke([...args, '--override'], schema)).status).toBe(0);
+        expect((await invoke([...args, '--no-process-env'], schema)).status).toBe(0);
+        expect(process.env.PORT).toBe('3000');
+    });
+
+    it('omits custom messages and values from both JSON and human diagnostics', async () => {
+        process.env.TOKEN = 'PRIVATE_TOKEN';
+        for (const sensitive of [true, false]) {
+            const schema = { TOKEN: { type: String, sensitive, validate: (value: string) => value } };
+            const json = await invoke(['check', '--schema', 'schema', '--json'], schema);
+            expect(json.status).toBe(1);
+            expect(JSON.parse(json.stdout)).toEqual({ success: false,
+                issues: [{ code: 'custom_validation', key: 'TOKEN', ...(sensitive ? { sensitive: true } : {}) }] });
+            const text = await invoke(['check', '--schema', 'schema'], schema);
+            expect(text.stdout).toBe('');
+            expect(text.stderr).toContain('custom_validation');
+            expect(JSON.stringify([json, text])).not.toContain('PRIVATE_TOKEN');
+        }
+        const root = await invoke(['check', '--schema', 'schema', '--json'], null as unknown as EnvSchema);
+        expect(JSON.parse(root.stdout)).toEqual({ success: false, issues: [{ code: 'invalid_schema' }] });
+    });
+
+    it('reports safe stage codes for module, file and unexpected schema failures', async () => {
+        let output = '';
+        expect(await runCli(['check', '--schema', 'schema', '--json'], text => { output = text; },
+            async () => { throw new Error('PRIVATE_TOKEN'); })).toBe(2);
+        expect(JSON.parse(output)).toMatchObject({ error: { code: 'schema_load_failed' } });
+        const missing = await invoke(['check', '--schema', 'schema', '--file', 'PRIVATE_TOKEN', '--json']);
+        expect(JSON.parse(missing.stdout)).toMatchObject({ error: { code: 'source_load_failed' } });
+        const schema = Object.defineProperty({}, 'PORT', { get: () => { throw new Error('PRIVATE_TOKEN'); } }) as EnvSchema;
+        const invalid = await invoke(['check', '--schema', 'schema'], schema);
+        expect(invalid).toEqual({ status: 2, stdout: '', stderr: 'Unable to validate schema\n' });
+        expect(JSON.stringify([output, missing, invalid])).not.toContain('PRIVATE_TOKEN');
+    });
+
+    it('accepts named envSchema exports and emits templates without defaults', async () => {
+        let output = '';
+        expect(await runCli(['example', '--schema', 'schema'], text => { output = text; },
+            async () => ({ envSchema: { TOKEN: { type: String, default: 'PRIVATE_TOKEN' } } }))).toBe(0);
+        expect(output).toBe('TOKEN=\n');
+        expect((await invoke(['example', '--schema', 'schema'], { 'BAD\nKEY': String })).status).toBe(1);
+    });
+});
 
 describe('environment templates', () => {
     it('emits ordered blank assignments without evaluating definitions, defaults or callbacks', () => {

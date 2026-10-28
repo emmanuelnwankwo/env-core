@@ -39,8 +39,9 @@ it('binds package contents, version, bytes and source commit before publishing o
     writeFileSync(path.join(root, 'package/dist/index.d.ts'), '');
     writeFileSync(path.join(root, 'package/dist/index.mjs'), '');
     writeFileSync(path.join(root, 'package/dist/index.d.mts'), '');
+    writeFileSync(path.join(root, 'package/dist/cli.js'), '');
     const archive = path.join(root, 'env-core-1.1.2.tgz');
-    const entries = ['package/package.json', ...['index.js', 'index.d.ts', 'index.mjs', 'index.d.mts'].map(file => `package/dist/${file}`)];
+    const entries = ['package/package.json', ...['index.js', 'index.d.ts', 'index.mjs', 'index.d.mts', 'cli.js'].map(file => `package/dist/${file}`)];
     const pack = (): void => { execFileSync('tar', ['-czf', archive, ...entries], { cwd: root }); };
     pack();
     const metadata = artifactMetadata(root, archive, 'commit');
