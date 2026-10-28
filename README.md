@@ -104,6 +104,29 @@ Constraints run after conversion and also apply to defaults, even when input is 
 
 For example: `{ PORT: { type: Number, strict: true, integer: true, min: 1, max: 65535 }, MODE: { type: String, choices: ['dev', 'prod'] } }`.
 
+### Custom validators and sensitive fields
+
+Add a synchronous `validate(value)` callback to check the converted primitive after built-in rules pass. Return `true` to accept, `false` for a generic failure, or a string for a custom failure message. Defaults are checked too, even when input is present; missing optional fields skip the callback. Validators should be pure, since both a declared default and a supplied value may be checked in one call.
+
+```typescript
+import type { EnvSchemaItem } from 'env-core';
+
+const port: EnvSchemaItem<number> = {
+  type: Number,
+  strict: true,
+  validate: value => value % 2 === 0 || 'must be even',
+};
+
+const schema = {
+  PORT: port,
+  TOKEN: { type: String, sensitive: true, validate: (value: string) => value.startsWith('svc_') },
+};
+```
+
+`EnvSchemaItem<T>` provides contextual callback typing; annotate the callback parameter when using an inline field. The root also exports `EnvValidator<T>`. Callbacks receive the constructor's primitive type, not a default's literal type. Async callbacks and other invalid results produce `invalid_validator`; thrown errors are converted without exposing their message or cause.
+
+Set `sensitive: true` to suppress custom failure messages and mark that field's issues with `sensitive: true`. Built-in issues already omit input values, patterns, and choice lists. Custom messages for non-sensitive fields are retained with control characters escaped. Successful configuration values are returned unchanged.
+
 ## Usage Examples
 
 ### Express.js
@@ -173,9 +196,11 @@ The validated configuration object, containing schema fields only. Missing optio
 The package root also exports the types `EnvSchema`, `EnvSchemaItem<T>`, and `ValidatedEnv<T>`.
 
 ## Error Handling
-Validation failures throw the exported `EnvValidationError`, which extends `Error`. Its readonly `issues` array contains `{ code, key?, message }` entries without input values. Codes are `invalid_schema`, `invalid_config`, `missing_required`, `invalid_type`, and `invalid_value` (strict numeric parsing); root errors have no field key. File-loading errors remain separate errors with their native `cause`.
+Validation failures throw the exported `EnvValidationError`, which extends `Error`. Its readonly `issues` array contains `{ code, key?, message, sensitive?: true }` entries. Built-in messages contain no input values. Codes are `invalid_schema`, `invalid_config`, `missing_required`, `invalid_type`, and `invalid_value` (strict numeric parsing); root errors have no field key. File-loading errors remain separate errors with their native `cause`.
 
 Constraint failures use `too_small`, `too_big`, `not_integer`, `invalid_pattern`, and `invalid_choice`. Numeric constraints also use `invalid_value` for non-finite numbers. Messages do not include the input, pattern, or allowed choices.
+
+Custom rule failures use `custom_validation`; thrown errors and invalid or asynchronous results use `invalid_validator`. Invalid custom defaults use `invalid_schema`.
 
 If validation fails, the package throws an error with detailed information, including:
 - Missing required environment variables

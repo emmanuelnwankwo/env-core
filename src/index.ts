@@ -5,7 +5,8 @@ import { displayKey, EnvValidationError } from './errors.ts';
 import type { EnvIssue } from './errors.ts';
 import { checkConstraints, normalizeConstraints } from './constraints.ts';
 import type { Constraints } from './constraints.ts';
-import type { EnvSchema, EnvValue, SchemaType, ValidatedEnv } from './types.ts';
+import { checkCustom } from './validators.ts';
+import type { EnvSchema, EnvValue, SchemaType, ValidatedEnv, EnvValidator } from './types.ts';
 
 interface NormalizedItem {
     type: SchemaType;
@@ -13,6 +14,8 @@ interface NormalizedItem {
     default: EnvValue | undefined;
     strict: boolean;
     constraints: Constraints | undefined;
+    validate: EnvValidator<EnvValue> | undefined;
+    sensitive: boolean;
 }
 
 const decimal = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?(?![\s\S])/;
@@ -64,6 +67,13 @@ function normalizeItem(key: string, value: unknown, issues: EnvIssue[]): Normali
         return;
     }
     const fallback = hasOwn(item, 'default') ? item.default : undefined;
+    const sensitive = hasOwn(item, 'sensitive') ? item.sensitive : undefined;
+    const validate = hasOwn(item, 'validate') ? item.validate : undefined;
+    if ((sensitive !== undefined && typeof sensitive !== 'boolean') || (validate !== undefined && typeof validate !== 'function')) {
+        issues.push({ code: 'invalid_schema', key, message: `${displayKey(key)} has invalid validation options` });
+        return;
+    }
+    const validator = validate as EnvValidator<EnvValue> | undefined;
     const strict = hasOwn(item, 'strict') ? item.strict : undefined;
     if (strict !== undefined && (typeof strict !== 'boolean' || type === String)) {
         issues.push({ code: 'invalid_schema', key, message: `${displayKey(key)} strict requires a Number or Boolean field and a boolean flag` });
@@ -77,9 +87,10 @@ function normalizeItem(key: string, value: unknown, issues: EnvIssue[]): Normali
     const before = issues.length;
     const constraints = normalizeConstraints(key, item, type, issues);
     if (issues.length !== before) return;
-    if (fallback !== undefined && constraints) {
+    if (fallback !== undefined && (constraints || validator)) {
         const defaultIssues: EnvIssue[] = [];
         checkConstraints(key, fallback as EnvValue, constraints, defaultIssues);
+        if (!defaultIssues.length) checkCustom(key, fallback as EnvValue, validator, sensitive === true, defaultIssues);
         if (defaultIssues.length) {
             issues.push({ code: 'invalid_schema', key, message: `${displayKey(key)} has an invalid default` });
             return;
@@ -91,6 +102,8 @@ function normalizeItem(key: string, value: unknown, issues: EnvIssue[]): Normali
         default: fallback,
         strict: strict === true,
         constraints,
+        validate: validator,
+        sensitive: sensitive === true,
     };
 }
 
@@ -120,6 +133,23 @@ function convertValue(key: string, value: unknown, item: NormalizedItem, issues:
     }
 }
 
+function validateField(key: string, definition: unknown, source: Record<string, unknown>, issues: EnvIssue[]): EnvValue | undefined {
+    const item = normalizeItem(key, definition, issues);
+    if (!item) return;
+    const value = hasOwn(source, key) ? source[key] : undefined;
+    if (value === undefined) {
+        if (item.required) issues.push({ code: 'missing_required', key, message: `Missing required field: ${displayKey(key)}` });
+        else return item.default;
+        return;
+    }
+    const validated = convertValue(key, value, item, issues);
+    if (validated === undefined) return;
+    const before = issues.length;
+    checkConstraints(key, validated, item.constraints, issues);
+    if (issues.length === before) checkCustom(key, validated, item.validate, item.sensitive, issues);
+    if (issues.length === before) return validated;
+}
+
 /**
  * Validates process environment variables with optional file fallbacks.
  *
@@ -131,6 +161,8 @@ function convertValue(key: string, value: unknown, item: NormalizedItem, issues:
  *                     Boolean fields accept typed booleans or exactly 'true'/'false'; coercion is never used.
  *                     Number constraints: `min`, `max`, `integer`; String constraints: `minLength`, `maxLength`, `pattern`.
  *                     `choices` applies to any field; constraints also validate defaults.
+ *                     `validate(value)` runs after built-in checks and must synchronously return true, false, or an error message.
+ *                     `sensitive: true` suppresses custom messages and marks issues; successful values are not redacted.
  * @param {string} [envFile] - The environment file to load. Defaults to an optional '.env' file.
  *                            Existing process values take precedence; process.env is never modified.
  *
@@ -158,6 +190,8 @@ function validateEnv<T extends EnvSchema>(schema: T, envFile?: string): Validate
  *                     Boolean fields accept typed booleans or exactly 'true'/'false'; coercion is never used.
  *                     Number constraints: `min`, `max`, `integer`; String constraints: `minLength`, `maxLength`, `pattern`.
  *                     `choices` applies to any field; constraints also validate defaults.
+ *                     `validate(value)` runs after built-in checks and must synchronously return true, false, or an error message.
+ *                     `sensitive: true` suppresses custom messages and marks issues; successful values are not redacted.
  * @param {Record<string, unknown>} config - The sole configuration source; no files or process values are merged.
  *                                          Values may be strings or already typed numbers and booleans.
  * @param {string} [envFile] - Retained for compatibility and ignored when config is supplied.
@@ -186,22 +220,14 @@ function validateEnv<T extends EnvSchema>(schema: T, configOrEnvFile?: Record<st
     const result: Record<string, unknown> = {};
     const issues: EnvIssue[] = [];
     for (const key of Object.getOwnPropertyNames(schema)) {
-        const item = normalizeItem(key, schema[key], issues);
-        if (!item) continue;
-        const value = hasOwn(source, key) ? source[key] : undefined;
-        let validated: EnvValue | undefined;
-        if (value === undefined) {
-            if (item.required) issues.push({ code: 'missing_required', key, message: `Missing required field: ${displayKey(key)}` });
-            else validated = item.default;
-        } else {
-            validated = convertValue(key, value, item, issues);
+        const definition = schema[key];
+        const sensitive = isRecord(definition) && hasOwn(definition, 'sensitive') && definition.sensitive === true;
+        const before = issues.length;
+        const validated = validateField(key, definition, source, issues);
+        if (sensitive) {
+            for (let i = before; i < issues.length; i++) issues[i] = { ...issues[i], sensitive: true };
         }
         if (validated !== undefined) {
-            if (value !== undefined) {
-                const before = issues.length;
-                checkConstraints(key, validated, item.constraints, issues);
-                if (issues.length !== before) continue;
-            }
             Object.defineProperty(result, key, { value: validated, enumerable: true, writable: true, configurable: true });
         }
     }
@@ -212,4 +238,4 @@ function validateEnv<T extends EnvSchema>(schema: T, configOrEnvFile?: Record<st
 export { validateEnv };
 export { EnvValidationError } from './errors.ts';
 export type { EnvIssue, EnvIssueCode } from './errors.ts';
-export type { ValidatedEnv, EnvSchema, EnvSchemaItem } from './types.ts';
+export type { ValidatedEnv, EnvSchema, EnvSchemaItem, EnvValidator } from './types.ts';

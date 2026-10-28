@@ -1,13 +1,14 @@
 export type EnvIssueCode = 'invalid_schema' | 'invalid_config' | 'missing_required' | 'invalid_type' | 'invalid_value'
-    | 'too_small' | 'too_big' | 'not_integer' | 'invalid_pattern' | 'invalid_choice';
+    | 'too_small' | 'too_big' | 'not_integer' | 'invalid_pattern' | 'invalid_choice' | 'custom_validation' | 'invalid_validator';
 
 export interface EnvIssue {
     readonly code: EnvIssueCode;
     readonly key?: string;
     readonly message: string;
+    readonly sensitive?: true;
 }
 
-/** aggregated validation failures without input values */
+/** aggregated validation failures with structured issues */
 export class EnvValidationError extends Error {
     readonly issues: readonly EnvIssue[];
 
