@@ -51,7 +51,9 @@ describe('packed package', () => {
 
         const source = `import { strict as assert } from 'node:assert';
 import { EnvValidationError, validateEnv } from 'env-core';
-import type { EnvIssue, EnvSchema, EnvSchemaItem, ValidatedEnv } from 'env-core';
+import type { EnvIssue, EnvSchema, EnvSchemaItem, ValidatedEnv, EnvValidator } from 'env-core';
+const validatePort: EnvValidator<number> = value => value > 0;
+assert.equal(validateEnv({ PORT: { type: Number, validate: validatePort } }, { PORT: '3210' }).PORT, 3210);
 assert.throws(() => validateEnv({ MISSING: String }, {}), EnvValidationError);
 const issue: EnvIssue = { code: 'missing_required', key: 'MISSING', message: 'missing' };
 assert.equal(new EnvValidationError([issue]).issues[0].code, 'missing_required');

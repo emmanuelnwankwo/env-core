@@ -1,5 +1,6 @@
 type SchemaType = StringConstructor | NumberConstructor | BooleanConstructor;
 type EnvValue = string | number | boolean;
+type EnvValidator<T extends EnvValue> = (value: T) => boolean | string;
 
 type SchemaItem<C extends SchemaType, T> = {
     type: C;
@@ -13,6 +14,8 @@ type SchemaItem<C extends SchemaType, T> = {
     maxLength?: C extends StringConstructor ? number : never;
     pattern?: C extends StringConstructor ? RegExp : never;
     choices?: readonly T[];
+    validate?: EnvValidator<InferSchemaType<C>>;
+    sensitive?: boolean;
 };
 
 type EnvSchemaItem<T = unknown> = unknown extends T
@@ -45,4 +48,4 @@ type ValidatedEnv<T extends EnvSchema> = {
     [K in keyof T]: InferType<T[K]>
 };
 
-export type { ValidatedEnv, EnvSchema, EnvSchemaItem, SchemaType, EnvValue };
+export type { ValidatedEnv, EnvSchema, EnvSchemaItem, SchemaType, EnvValue, EnvValidator };

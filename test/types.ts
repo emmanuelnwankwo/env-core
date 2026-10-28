@@ -33,16 +33,42 @@ export type InferenceAssertions = [
 ];
 
 export function inferredOverloads() {
+    const custom = validateEnv({ PORT: { type: Number, validate: (value: number) => value > 0 } }, { PORT: '3000' });
+    const customPort: number = custom.PORT;
     const strict: number = validateEnv({ PORT: { type: Number, strict: true } }, { PORT: '3000' }).PORT;
     const result = validateEnv({ PORT: { type: Number }, DEBUG: { type: Boolean, default: false } }, {});
     const number: number = result.PORT;
     const boolean: boolean = result.DEBUG;
     const typedBoolean: EnvSchemaItem<boolean> = { type: Boolean, default: boolean };
     const fromFile: number = validateEnv({ PORT: { type: Number } }, 'test.env').PORT;
-    return { number, boolean, typedBoolean, fromFile, strict };
+    return { number, boolean, typedBoolean, fromFile, strict, customPort };
 }
 
 export function rejectedSchemas() {
+    const typedField: EnvSchemaItem<number> = {
+        type: Number,
+        validate: value => {
+            // @ts-expect-error callback is contextually typed as number
+            value.toUpperCase();
+            return value > 0;
+        },
+    };
+    validateEnv({ PORT: typedField }, {});
+    const literalDefault: EnvSchemaItem<1> = {
+        type: Number, default: 1,
+        validate: value => {
+            // @ts-expect-error callbacks receive numbers beyond the default literal
+            const literal: 1 = value;
+            return literal === value;
+        },
+    };
+    validateEnv({ PORT: literalDefault }, {});
+    // @ts-expect-error async validators are unsupported
+    validateEnv({ PORT: { type: Number, validate: async () => true } }, {});
+    // @ts-expect-error callback type must match the field constructor
+    validateEnv({ PORT: { type: Number, validate: (value: string) => value.length > 0 } }, {});
+    // @ts-expect-error sensitive must be a boolean
+    validateEnv({ TOKEN: { type: String, sensitive: 'true' } }, {});
     // @ts-expect-error numeric bounds require Number
     validateEnv({ NAME: { type: String, min: 1 } }, {});
     // @ts-expect-error length bounds require String
