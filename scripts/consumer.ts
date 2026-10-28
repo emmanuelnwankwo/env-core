@@ -70,6 +70,11 @@ const common = createRequire(import.meta.url)('env-core');
 assert.equal(common.validateEnv, validateEnv);
 assert.equal(common.EnvValidationError, EnvValidationError);
 ` : ''));
+        writeFileSync(path.join(directory, 'schema.cts'), `import type { EnvSchema } from 'env-core';
+const schema = { PORT: { type: Number, strict: true, min: 1, default: 3210 },
+TOKEN: { type: String, default: 'PRIVATE_TOKEN', sensitive: true } } satisfies EnvSchema;
+module.exports = schema;
+`);
         if (manager !== 'yarn-modern') {
             writeFileSync(path.join(directory, 'tsconfig.json'), JSON.stringify({
                 compilerOptions: {
@@ -81,18 +86,30 @@ assert.equal(common.EnvValidationError, EnvValidationError);
                 run(process.execPath, [resolve(`${compiler}/bin/tsc`), '-p', '.']);
             }
         } else {
-            for (const extension of ['cts', 'mts']) {
-                const result = ts.transpileModule(readFileSync(path.join(directory, `index.${extension}`), 'utf8'), {
-                    fileName: `index.${extension}`,
+            for (const filename of ['index.cts', 'index.mts', 'schema.cts']) {
+                const result = ts.transpileModule(readFileSync(path.join(directory, filename), 'utf8'), {
+                    fileName: filename,
                     compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.Node16 },
                 });
-                writeFileSync(path.join(directory, `index.${extension === 'cts' ? 'cjs' : 'mjs'}`), result.outputText);
+                writeFileSync(path.join(directory, filename.replace(/\.([cm])ts$/, '.$1js')), result.outputText);
             }
         }
         for (const extension of ['cjs', 'mjs']) {
             if (yarn) run(targetNode, [yarn, 'node', `index.${extension}`]);
             else run(targetNode, [`index.${extension}`]);
         }
+        const cli = yarn ? [yarn, 'env-core'] : [path.join(path.dirname(createRequire(path.join(directory, 'package.json')).resolve('env-core')), 'cli.js')];
+        const invoke = (args: string[]): string => execFileSync(targetNode, [...cli, ...args], { cwd: directory, env, encoding: 'utf8', timeout: 15000 });
+        const check = (filename: string): void => {
+            const output = invoke(['check', '--schema', filename, '--no-process-env', '--json']);
+            assert.ok(output.split('\n').includes('{"success":true}'));
+            assert.ok(!output.includes('PRIVATE_TOKEN'));
+        };
+        check('schema.cjs');
+        const template = invoke(['example', '--schema', 'schema.cjs']);
+        assert.ok(template.includes('PORT=\nTOKEN=\n') && !template.includes('PRIVATE_TOKEN'));
+        const [major, minor] = execFileSync(targetNode, ['-p', 'process.versions.node'], { env, encoding: 'utf8' }).trim().split('.').map(Number);
+        if (major > 22 || (major === 22 && minor >= 18)) check('schema.cts');
     } finally {
         rmSync(directory, { recursive: true, force: true });
     }

@@ -219,6 +219,33 @@ Files load in order; later files win. Process values win by default; `override: 
 
 Names must start with a letter or underscore and contain only letters, digits, and underscores. Invalid names and symbol keys throw `EnvValidationError`; an empty schema produces an empty string. Nonempty output ends with a newline. This function lists names; `validateEnv` checks field definitions and values.
 
+### CLI
+
+Export a schema as a module default or named `envSchema` export. For CommonJS, use `module.exports = schema`.
+
+```typescript
+// env.schema.mts
+import type { EnvSchema } from 'env-core';
+
+export default {
+  PORT: { type: Number, strict: true, integer: true, min: 1, max: 65535 },
+  TOKEN: { type: String, sensitive: true },
+} satisfies EnvSchema;
+```
+
+```sh
+npx env-core check --schema ./env.schema.mts --file .env --file .env.local --json
+npx env-core example --schema ./env.schema.mts > .env.example
+```
+
+Direct `.ts`, `.mts`, and `.cts` schemas use Node 22.18+ native type stripping. Use erasable TypeScript syntax and explicit type-only imports; Node does not type-check schemas or apply `tsconfig` transforms, path aliases, enums, or decorators. `.ts` follows the project's module type, `.mts` is ESM, and `.cts` is CommonJS. JavaScript `.js`/`.mjs`/`.cjs` schemas, including compiled TypeScript, work on Node 16+. Schema modules execute as ordinary code.
+
+`check` reads process values and only files explicitly passed with repeated `--file` flags, in order. Process values win unless `--override` is set. Use `--no-process-env` for files only. Relative schema and file paths resolve from the current working directory. The CLI uses `--file` to avoid Node's own `--env-file` handling.
+
+Exit codes are `0` for success, `1` for validation errors, and `2` for usage or loading failures. `--json` writes `{ "success": true }` or a failure result to stdout. Validation failures include issue codes, keys, and sensitive markers; operational failures include an error code and safe message. Human failures go to stderr. Neither format prints values, custom validator messages, or exception causes. Codes for operational failures are `invalid_arguments`, `schema_load_failed`, `source_load_failed`, and `validation_failed`.
+
+`example` writes the same blank assignments as `generateEnvExample`; it does not read environment files. Use `--help` for options. No TypeScript loader or argument-parser dependency is installed, and library imports do not load the CLI.
+
 ## Error Handling
 Validation failures throw the exported `EnvValidationError`, which extends `Error`. Its readonly `issues` array contains `{ code, key?, message, sensitive?: true }` entries. Built-in messages contain no input values. Codes are `invalid_schema`, `invalid_config`, `missing_required`, `invalid_type`, and `invalid_value` (strict numeric parsing); root errors have no field key. File-loading errors remain separate errors with their native `cause`.
 
