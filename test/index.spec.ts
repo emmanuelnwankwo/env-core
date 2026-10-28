@@ -3,11 +3,35 @@ import path from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { loadEnv, validateEnv } from '../src/index';
+import { EnvValidationError, generateEnvExample, loadEnv, validateEnv } from '../src/index';
 import type { EnvSchema, EnvSourceOptions } from '../src/types';
 
 const originalEnv = process.env;
 const fixtures: string[] = [];
+
+describe('environment templates', () => {
+    it('emits ordered blank assignments without evaluating definitions, defaults or callbacks', () => {
+        const validate = jest.fn(() => { throw new Error('private validator'); });
+        const schema = Object.create({ INHERITED: String }) as EnvSchema;
+        Object.assign(schema, { TOKEN: { type: String, default: 'PRIVATE_TOKEN', sensitive: true },
+            PORT: { type: Number, default: 3000, validate } });
+        Object.defineProperty(schema, 'HIDDEN', { get: () => { throw new Error('private getter'); } });
+        expect(generateEnvExample(schema)).toBe('TOKEN=\nPORT=\nHIDDEN=\n');
+        expect(validate).not.toHaveBeenCalled();
+        expect(generateEnvExample({})).toBe('');
+        expect(generateEnvExample(JSON.parse('{"__proto__":null,"constructor":null}') as EnvSchema))
+            .toBe('__proto__=\nconstructor=\n');
+    });
+
+    it('rejects names that could inject lines or cannot form portable assignments', () => {
+        for (const key of ['', '1PORT', 'A-B', 'A.B', 'A=B', 'A B', '#A', 'A\n', 'A\r', 'A\nINJECTED=value']) {
+            expect(() => generateEnvExample({ [key]: String })).toThrow(EnvValidationError);
+        }
+        for (const schema of [null, [], 'schema', { [Symbol('hidden')]: String }]) {
+            expect(() => generateEnvExample(schema as unknown as EnvSchema)).toThrow(EnvValidationError);
+        }
+    });
+});
 
 describe('explicit file layers', () => {
     it('applies ordered layers and process precedence without modifying any source', () => {

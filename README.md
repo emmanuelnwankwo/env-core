@@ -192,6 +192,11 @@ If the validation fails, NestJS will not initialize, and a descriptive error mes
 
 Without `config`, existing process values take precedence over file values. A missing default `.env` is allowed; missing explicit files and file read errors throw. Validation leaves `process.env` unchanged.
 
+#### Returns
+The validated configuration object, containing schema fields only. Missing optional fields are omitted and their inferred types include `undefined`. If validation fails, an error is thrown.
+
+The package root also exports the types `EnvSchema`, `EnvSchemaItem<T>`, and `ValidatedEnv<T>`.
+
 ### File layering
 
 Use `loadEnv` to select explicit sources, then pass its result to `validateEnv`:
@@ -208,10 +213,11 @@ Files load in order; later files win. Process values win by default; `override: 
 
 `processEnv` supplies an alternative source, including typed values; pass `{}` for files only. The result is a fresh record with no prototype. Sources and `process.env` remain unchanged. The root exports the `EnvSourceOptions` type. Existing `validateEnv` overloads keep their source behavior.
 
-#### Returns
-The validated configuration object, containing schema fields only. Missing optional fields are omitted and their inferred types include `undefined`. If validation fails, an error is thrown.
+### Environment templates
 
-The package root also exports the types `EnvSchema`, `EnvSchemaItem<T>`, and `ValidatedEnv<T>`.
+`generateEnvExample(schema)` returns a string of blank assignments such as `PORT=\nTOKEN=\n`, ready to save as `.env.example`. It includes own string field names in schema order, including non-enumerable fields. It never reads field definitions, defaults, current values, or validator callbacks, so even unmarked secret defaults are omitted.
+
+Names must start with a letter or underscore and contain only letters, digits, and underscores. Invalid names and symbol keys throw `EnvValidationError`; an empty schema produces an empty string. Nonempty output ends with a newline. This function lists names; `validateEnv` checks field definitions and values.
 
 ## Error Handling
 Validation failures throw the exported `EnvValidationError`, which extends `Error`. Its readonly `issues` array contains `{ code, key?, message, sensitive?: true }` entries. Built-in messages contain no input values. Codes are `invalid_schema`, `invalid_config`, `missing_required`, `invalid_type`, and `invalid_value` (strict numeric parsing); root errors have no field key. File-loading errors remain separate errors with their native `cause`.
