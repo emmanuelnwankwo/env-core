@@ -37,8 +37,10 @@ it('aggregates constraint issues deterministically without exposing values or ch
 });
 
 it.each([Infinity, -Infinity, Number.MAX_SAFE_INTEGER + 1])('rejects unsafe constrained numbers %p', value => {
-    expect(codes({ VALUE: { type: Number, integer: true } }, { VALUE: value }))
-        .toEqual([Number.isFinite(value) ? 'not_integer' : 'invalid_value']);
+    for (const strict of [true, false]) {
+        expect(codes({ VALUE: { type: Number, integer: true, strict } }, { VALUE: value }))
+            .toEqual([Number.isFinite(value) ? 'not_integer' : 'invalid_value']);
+    }
 });
 
 it('checks defaults against constraints even when input is present and skips absent optional fields', () => {

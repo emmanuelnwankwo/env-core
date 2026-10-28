@@ -27,7 +27,7 @@ it('runs typed synchronous validators on converted values and defaults', () => {
 it('skips callbacks for missing optional fields, parse failures and failed built-in constraints', () => {
     const validate = jest.fn<EnvValidator<number>>(() => true);
     expect(validateEnv({ VALUE: { type: Number, validate, required: false } }, {})).toEqual({});
-    expect(failure({ VALUE: { type: Number, validate } }, { VALUE: 'bad' }).issues[0].code).toBe('invalid_type');
+    expect(failure({ VALUE: { type: Number, validate } }, { VALUE: 'bad' }).issues[0].code).toBe('invalid_value');
     expect(failure({ VALUE: { type: Number, validate, min: 0 } }, { VALUE: -1 }).issues[0].code).toBe('too_small');
     expect(validate).not.toHaveBeenCalled();
 });
@@ -90,7 +90,7 @@ it('redacts custom messages and marks every sensitive issue while preserving val
         BAD: { type: String, sensitive: true, min: secret },
     } as unknown as EnvSchema, { TOKEN: secret, NUMBER: secret });
     expect(error.issues.map(issue => issue.code))
-        .toEqual(['custom_validation', 'invalid_type', 'missing_required', 'invalid_schema', 'invalid_schema']);
+        .toEqual(['custom_validation', 'invalid_value', 'missing_required', 'invalid_schema', 'invalid_schema']);
     expect(error.issues.every(issue => issue.sensitive === true)).toBe(true);
     for (const text of [error.message, error.stack, JSON.stringify(error), inspect(error)]) expect(text).not.toContain(secret);
     expect(validateEnv({ TOKEN: { type: String, sensitive: true, validate: () => true } }, { TOKEN: secret })).toEqual({ TOKEN: secret });

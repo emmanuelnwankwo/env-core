@@ -31,22 +31,15 @@ function isSchemaType(value: unknown): value is SchemaType {
     return value === String || value === Number || value === Boolean;
 }
 
-function readEnvFile(envFile: string, optional = false): Record<string, string> {
+function readEnvFile(envFile: string): Record<string, string> {
     const envPath = path.resolve(process.cwd(), envFile);
     try {
         return dotenv.parse(fs.readFileSync(envPath));
     } catch (error) {
         const code = isRecord(error) && typeof error.code === 'string' ? error.code : 'UNKNOWN';
-        if (optional && code === 'ENOENT') return {};
         throw Object.defineProperty(new Error(`Unable to load environment file ${envPath} (${code})`),
             'cause', { value: error, configurable: true, writable: true });
     }
-}
-
-/** loads file fallbacks without mutating the process environment */
-function loadEnvFile(envFile?: unknown): Record<string, unknown> {
-    if (envFile !== undefined && typeof envFile !== 'string') throw new Error('Environment file path must be a string');
-    return { ...readEnvFile(envFile ?? '.env', envFile === undefined), ...process.env };
 }
 
 /**
@@ -131,8 +124,9 @@ function normalizeItem(key: string, value: unknown, issues: EnvIssue[]): Normali
         issues.push({ code: 'invalid_schema', key, message: `${displayKey(key)} strict requires a Number or Boolean field and a boolean flag` });
         return;
     }
+    const strictNumber = type === Number && strict !== false;
     if (fallback !== undefined && (!validDefault(fallback, type) ||
-        (strict === true && type === Number && !Number.isFinite(fallback)))) {
+        (strictNumber && !Number.isFinite(fallback)))) {
         issues.push({ code: 'invalid_schema', key, message: `${displayKey(key)} has an invalid default` });
         return;
     }
@@ -152,7 +146,7 @@ function normalizeItem(key: string, value: unknown, issues: EnvIssue[]): Normali
         type,
         required: required === true || (required !== false && fallback === undefined),
         default: fallback,
-        strict: strict === true,
+        strict: strictNumber,
         constraints,
         validate: validator,
         sensitive: sensitive === true,
@@ -203,24 +197,30 @@ function validateField(key: string, definition: unknown, source: Record<string, 
 }
 
 /**
- * Validates process environment variables with optional file fallbacks.
+ * Validates an explicit configuration object or process.env without loading files.
  *
  * @template T - The type of the environment schema.
  * @param {T} schema - An object describing the expected environment variables and their types.
- *                     Each key in the schema can be either a constructor (String, Number, Boolean)
- *                     or an object with `type`, `required`, `default`, and optional `strict` properties.
- *                     Number fields with `strict: true` accept finite decimal/exponent values without whitespace.
+ *                     Each key can be a constructor (String, Number, Boolean) or an object with
+ *                     `type`, `required`, `default`, and optional `strict` properties.
+ *                     Number fields accept finite decimal/exponent values without whitespace by default.
+ *                     Set `strict: false` on a Number field to retain JavaScript number conversion.
  *                     Boolean fields accept typed booleans or exactly 'true'/'false'; coercion is never used.
  *                     Number constraints: `min`, `max`, `integer`; String constraints: `minLength`, `maxLength`, `pattern`.
  *                     `choices` applies to any field; constraints also validate defaults.
  *                     `validate(value)` runs after built-in checks and must synchronously return true, false, or an error message.
  *                     `sensitive: true` suppresses custom messages and marks issues; successful values are not redacted.
- * @param {string} [envFile] - The environment file to load. Defaults to an optional '.env' file.
- *                            Existing process values take precedence; process.env is never modified.
+ *                     A valid default makes a field optional unless `required: true` is explicit.
+ * @param {Record<string, unknown>} [config=process.env] - The sole configuration source, including already typed numbers and booleans.
+ *                                                       No file or process values are merged into an explicit object.
+ *                                                       Use `loadEnv` to read explicit files before validation.
  *
- * @returns {ValidatedEnv<T>} An object containing only validated schema fields. Missing optional fields are omitted.
- * @throws {EnvValidationError} If the schema or values are invalid or a required field is missing; issues contain codes and keys.
- * @throws {Error} If an explicit file cannot be loaded.
+ * @returns {ValidatedEnv<T>} A fresh mutable object containing only validated schema fields.
+ *                           Missing optional fields are omitted and their inferred types include undefined.
+ *                           Schema readonlyness and literal defaults do not narrow returned primitive values.
+ * @throws {EnvValidationError} If the schema, configuration or values are invalid, or a required field is missing.
+ *                             Issues contain codes and keys; input values are never included in built-in messages.
+ *                             Filename and third-argument calls are rejected with invalid_config.
  *
  * @example
  * const env = validateEnv({
@@ -229,53 +229,27 @@ function validateField(key: string, definition: unknown, source: Record<string, 
  *   DEBUG: { type: Boolean, default: false }
  * });
  *
- */
-function validateEnv<T extends EnvSchema>(schema: T, envFile?: string): ValidatedEnv<T>;
-/**
- * Validates an explicit configuration object, including configurations supplied by NestJS.
- *
- * @template T - The type of the environment schema.
- * @param {T} schema - An object describing the expected environment variables and their types.
- *                     Each key in the schema can be either a constructor (String, Number, Boolean)
- *                     or an object with `type`, `required`, `default`, and optional `strict` properties.
- *                     Number fields with `strict: true` accept finite decimal/exponent values without whitespace.
- *                     Boolean fields accept typed booleans or exactly 'true'/'false'; coercion is never used.
- *                     Number constraints: `min`, `max`, `integer`; String constraints: `minLength`, `maxLength`, `pattern`.
- *                     `choices` applies to any field; constraints also validate defaults.
- *                     `validate(value)` runs after built-in checks and must synchronously return true, false, or an error message.
- *                     `sensitive: true` suppresses custom messages and marks issues; successful values are not redacted.
- * @param {Record<string, unknown>} config - The sole configuration source; no files or process values are merged.
- *                                          Values may be strings or already typed numbers and booleans.
- * @param {string} [envFile] - Retained for compatibility and ignored when config is supplied.
- *
- * @returns {ValidatedEnv<T>} An object containing only validated schema fields. Missing optional fields are omitted.
- * @throws {EnvValidationError} If the schema or values are invalid or a required field is missing; issues contain codes and keys.
- *
  * @example
  * ConfigModule.forRoot({
  *   isGlobal: true,
  *   validate: (config) => validateEnv(envSchema, config),
- * }),
+ * });
  *
+ * @example validateEnv(envSchema, loadEnv({ files: ['.env', '.env.local'] }))
  */
-function validateEnv<T extends EnvSchema>(schema: T, config: Record<string, unknown>, envFile?: string): ValidatedEnv<T>;
-function validateEnv<T extends EnvSchema>(schema: T, configOrEnvFile?: Record<string, unknown> | string, envFile?: string): ValidatedEnv<T> {
+function validateEnv<T extends EnvSchema>(schema: T, config?: Record<string, unknown>): ValidatedEnv<T>;
+function validateEnv<T extends EnvSchema>(schema: T, config: Record<string, unknown> = process.env): ValidatedEnv<T> {
     if (!isRecord(schema)) throw new EnvValidationError([{ code: 'invalid_schema', message: 'Environment schema must be an object' }]);
     if (Object.getOwnPropertySymbols(schema).length) throw new EnvValidationError([{ code: 'invalid_schema', message: 'Environment schema keys must be strings' }]);
-    let source: Record<string, unknown>;
-    if (configOrEnvFile === undefined || typeof configOrEnvFile === 'string') {
-        source = loadEnvFile(typeof configOrEnvFile === 'string' ? configOrEnvFile : envFile);
-    } else {
-        if (!isRecord(configOrEnvFile)) throw new EnvValidationError([{ code: 'invalid_config', message: 'Environment configuration must be an object' }]);
-        source = configOrEnvFile;
-    }
+    if (arguments.length > 2) throw new EnvValidationError([{ code: 'invalid_config', message: 'validateEnv accepts only a schema and configuration object' }]);
+    if (!isRecord(config)) throw new EnvValidationError([{ code: 'invalid_config', message: 'Environment configuration must be an object' }]);
     const result: Record<string, unknown> = {};
     const issues: EnvIssue[] = [];
     for (const key of Object.getOwnPropertyNames(schema)) {
         const definition = schema[key];
         const sensitive = isRecord(definition) && hasOwn(definition, 'sensitive') && definition.sensitive === true;
         const before = issues.length;
-        const validated = validateField(key, definition, source, issues);
+        const validated = validateField(key, definition, config, issues);
         if (sensitive) {
             for (let i = before; i < issues.length; i++) issues[i] = { ...issues[i], sensitive: true };
         }

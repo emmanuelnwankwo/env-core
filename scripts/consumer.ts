@@ -60,7 +60,7 @@ export function verifyConsumer(manager: string, archive: string, targetNode = pr
         }
         const source = `import { strict as assert } from 'node:assert';
 import { EnvValidationError, generateEnvExample, loadEnv, validateEnv } from 'env-core';
-import type { EnvSchema, EnvSourceOptions, ValidatedEnv } from 'env-core';
+import type { EnvSchema, EnvSchemaItem, EnvSourceOptions, ValidatedEnv } from 'env-core';
 const schema = { PORT: Number, DEBUG: { type: Boolean, default: false }, LABEL: { type: String, required: false } } satisfies EnvSchema;
 process.env.PORT = '9000';
 const values: ValidatedEnv<typeof schema> = validateEnv(schema, { PORT: '3210' });
@@ -82,6 +82,39 @@ assert.equal(generateEnvExample({ TOKEN: { type: String, default: 'PRIVATE_TOKEN
 const sourceOptions: EnvSourceOptions = { files: [], processEnv: { PORT: '3210' } };
 assert.equal(validateEnv({ PORT: Number }, loadEnv(sourceOptions)).PORT, 3210);
 assert.throws(() => validateEnv({ PORT: Number }, { PORT: 'invalid' }), EnvValidationError);
+assert.throws(() => validateEnv({ PORT: Number }, { PORT: '0x10' }), EnvValidationError);
+assert.equal(validateEnv({ PORT: { type: Number, strict: false } }, { PORT: '0x10' }).PORT, 16);
+const booleanChoices: EnvSchemaItem<boolean> = { type: Boolean, choices: [true, false], default: false };
+const literalChoices: EnvSchemaItem<'dev' | 'prod'> = { type: String, choices: ['dev', 'prod'] };
+const numericChoices: EnvSchemaItem<1 | 2> = { type: Number, choices: [1, 2] };
+assert.deepEqual(validateEnv({ FLAG: booleanChoices, MODE: literalChoices, NUMBER: numericChoices },
+    { FLAG: 'true', MODE: 'prod', NUMBER: '2' }), { FLAG: true, MODE: 'prod', NUMBER: 2 });
+const unsetOptions: EnvSchemaItem<number> = { type: Number, required: undefined, default: undefined,
+    strict: undefined, min: undefined, max: undefined, integer: undefined, choices: undefined,
+    validate: undefined, sensitive: undefined };
+assert.equal(validateEnv({ VALUE: unsetOptions }, { VALUE: '3' }).VALUE, 3);
+const processOnly: EnvSourceOptions = { files: [], override: undefined, processEnv: undefined };
+assert.equal(validateEnv({ PORT: Number }, loadEnv(processOnly)).PORT, 9000);
+const readonlySchema = { OPTIONAL: { type: Number, required: false }, DEFAULT: { type: Number, default: 1 },
+    FLAG: { type: Boolean, default: false }, UNSET: { type: Number, required: false, default: undefined } } as const;
+type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
+type Assert<T extends true> = T;
+export type Inference = [Assert<Equal<ValidatedEnv<typeof readonlySchema>['OPTIONAL'], number | undefined>>,
+    Assert<Equal<ValidatedEnv<typeof readonlySchema>['DEFAULT'], number>>,
+    Assert<Equal<ValidatedEnv<typeof readonlySchema>['FLAG'], boolean>>,
+    Assert<Equal<ValidatedEnv<typeof readonlySchema>['UNSET'], number | undefined>>];
+const mutable = validateEnv(readonlySchema, {});
+mutable.DEFAULT = 2;
+mutable.FLAG = true;
+assert.equal(mutable.DEFAULT, 2);
+export function removedForms() {
+    // @ts-expect-error filename loading requires loadEnv
+    validateEnv({ PORT: Number }, 'test.env');
+    // @ts-expect-error the ignored third argument is removed
+    validateEnv({ PORT: Number }, {}, 'test.env');
+    // @ts-expect-error typed choices must match the constructor
+    validateEnv({ PORT: { type: Number, choices: ['1'] } }, {});
+}
 `;
         for (const extension of ['cts', 'mts']) writeFileSync(path.join(directory, `index.${extension}`), source + (extension === 'mts' ? `
 const { createRequire } = await import('node:module');
@@ -99,7 +132,7 @@ module.exports = schema;
         if (manager !== 'yarn-modern') {
             writeFileSync(path.join(directory, 'tsconfig.json'), JSON.stringify({
                 compilerOptions: {
-                    strict: true, target: 'ES2020', module: 'Node16', moduleResolution: 'Node16',
+                    strict: true, exactOptionalPropertyTypes: true, target: 'ES2020', module: 'Node16', moduleResolution: 'Node16',
                     types: ['node'], typeRoots: [path.join(root, 'node_modules/@types')],
                 }, include: ['*.cts', '*.mts'],
             }));

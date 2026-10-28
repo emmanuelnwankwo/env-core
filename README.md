@@ -19,7 +19,7 @@ npm install env-core
 
 The JSR package is [`@nec/env-core`](https://jsr.io/@nec/env-core).
 
-For the upcoming major version, see the [v2.0 migration guide](https://github.com/emmanuelnwankwo/env-core/blob/main/MIGRATION.md).
+This README describes the v2.0 contract. See the [v2.0 migration guide](https://github.com/emmanuelnwankwo/env-core/blob/main/MIGRATION.md) or the [v1.3.0 documentation](https://github.com/emmanuelnwankwo/env-core/blob/v1.3.0/README.md) when using v1.x.
 
 From 1.3.0, ESM imports use a native `.mjs` entry with matching declarations. It shares the CommonJS runtime, so functions and `EnvValidationError` retain their identity when both module formats are used together.
 
@@ -53,7 +53,7 @@ const port: number = env.PORT;
 const debug: boolean = env.DEBUG;
 ```
 
-The example returns typed values and reports only error codes and field names on failure. At application startup, replace the sample object with `readConfig(process.env)`. An explicit object is the sole source; it does not load files or modify `process.env`. For file fallbacks, call `validateEnv(schema)` instead: existing process values win over an optional `.env` file.
+The example returns typed values and reports only error codes and field names on failure. At application startup, replace the sample object with `readConfig(process.env)`. An explicit object is the sole source; it does not load files or modify `process.env`. Without an explicit object, `validateEnv(schema)` validates only process values. For file fallbacks, pass the result of `loadEnv({ files: ['.env'] })`; listed files must exist.
 
 See [file layering](#file-layering), [safe templates](#environment-templates), [CLI commands](#cli), and the [Express](#expressjs)/[NestJS](#nestjs) examples for other entry points.
 
@@ -126,7 +126,7 @@ A valid default makes a field optional unless `required: true` is explicit. Defa
 
 ### Strict parsing
 
-Set `strict: true` on a Number field to accept only finite numbers or decimal strings, including signs, fractions, and exponent notation: `{ type: Number, strict: true }`. Blank strings, whitespace, hex/binary/octal notation, `NaN`, and `Infinity` are rejected. JavaScript number precision still applies. Numeric defaults must also be finite in strict mode. Existing Number fields retain their current conversion unless they opt in.
+Number fields accept only finite numbers or decimal strings by default, including signs, fractions, and exponent notation. Blank strings, whitespace, hex/binary/octal notation, `NaN`, and `Infinity` are rejected. JavaScript number precision still applies. Numeric defaults must also be finite. Set `strict: false` explicitly to retain JavaScript number conversion, including blank strings converting to zero and unconstrained infinities. Constraints still apply.
 
 Boolean fields, with or without `strict: true`, accept only typed booleans and the exact strings `'true'` and `'false'`; `0`, `1`, case variants, and whitespace are invalid. Missing fields continue to follow `required` and `default`; String fields accept empty strings and do not support `strict`.
 
@@ -179,8 +179,7 @@ import { validateEnv } from 'env-core';
 import { envSchema } from './envSchema.js'; // Import the validation schema
 
 // Validate the environment variables using the schema
-const env = validateEnv(envSchema); // Option 1: Validates using environment variables or defaults to .env
-// const env = validateEnv(envSchema, 'test.env'); // Option 2: Validates using a custom env file
+const env = validateEnv(envSchema); // validates process values only
 
 const app = express();
 
@@ -220,18 +219,15 @@ export class AppModule {}
 If the validation fails, NestJS will not initialize, and a descriptive error message will be printed.
 
 ## API Reference
-`validateEnv(schema: EnvSchema, envPath?: string)`
-
-`validateEnv(schema: EnvSchema, config: Record<string, unknown>, envPath?: string)`
+`validateEnv<T extends EnvSchema>(schema: T, config?: Record<string, unknown>): ValidatedEnv<T>`
 
 - schema: An object that defines the required environment variables and their types. Supported types are String, Number, and Boolean.
-- `envPath` (optional): A string specifying a custom .env file to load (e.g., 'test.env').
-- `config`: An explicit configuration object used as the sole source, including already typed numbers and booleans. No file or process values are merged into it; a third file argument is ignored.
+- `config` (optional): The sole configuration source, including already typed numbers and booleans. Defaults to `process.env`. No other values or files are merged into an explicit object.
 
-Without `config`, existing process values take precedence over file values. A missing default `.env` is allowed; missing explicit files and file read errors throw. Validation leaves `process.env` unchanged.
+Validation never loads files or changes `process.env`. Use `loadEnv` for explicit file loading. Filename and third-argument calls are rejected with `invalid_config`; TypeScript also rejects those removed forms.
 
 #### Returns
-The validated configuration object, containing schema fields only. Missing optional fields are omitted and their inferred types include `undefined`. If validation fails, an error is thrown.
+A fresh mutable configuration object containing schema fields only. Missing optional fields are omitted and their inferred types include `undefined`. Readonly schemas do not make returned values readonly. Defaults and choices do not narrow the constructor's returned primitive type. If validation fails, an error is thrown.
 
 The package root also exports the types `EnvSchema`, `EnvSchemaItem<T>`, and `ValidatedEnv<T>`.
 
@@ -251,7 +247,7 @@ const env = validateEnv({ PORT: Number }, loadEnv({
 
 Files load in order; later files win. Process values win by default; `override: true` lets file values win instead. Every listed file must be readable, including `.env` when explicitly listed. Relative paths resolve from the current working directory. No files load implicitly through `loadEnv`; `files: []` snapshots only the process source.
 
-`processEnv` supplies an alternative source, including typed values; pass `{}` for files only. The result is a fresh record with no prototype. Sources and `process.env` remain unchanged. The root exports the `EnvSourceOptions` type. Existing `validateEnv` overloads keep their source behavior.
+`processEnv` supplies an alternative source, including typed values; pass `{}` for files only. The result is a fresh record with no prototype. Sources and `process.env` remain unchanged. The root exports the `EnvSourceOptions` type.
 
 ### Environment templates
 

@@ -6,33 +6,33 @@ type EnvValidator<T extends EnvValue> = (value: T) => boolean | string;
 /** selects explicit file layers and an independent process source */
 interface EnvSourceOptions {
     readonly files: readonly string[];
-    readonly override?: boolean;
-    readonly processEnv?: Record<string, unknown>;
+    readonly override?: boolean | undefined;
+    readonly processEnv?: Record<string, unknown> | undefined;
 }
 
 type SchemaItem<C extends SchemaType, T> = {
     type: C;
-    required?: boolean;
-    default?: T;
-    strict?: C extends NumberConstructor | BooleanConstructor ? boolean : never;
-    min?: C extends NumberConstructor ? number : never;
-    max?: C extends NumberConstructor ? number : never;
-    integer?: C extends NumberConstructor ? boolean : never;
-    minLength?: C extends StringConstructor ? number : never;
-    maxLength?: C extends StringConstructor ? number : never;
-    pattern?: C extends StringConstructor ? RegExp : never;
-    choices?: readonly T[];
-    validate?: EnvValidator<InferSchemaType<C>>;
-    sensitive?: boolean;
+    required?: boolean | undefined;
+    default?: T | undefined;
+    strict?: C extends NumberConstructor | BooleanConstructor ? boolean | undefined : undefined;
+    min?: C extends NumberConstructor ? number | undefined : undefined;
+    max?: C extends NumberConstructor ? number | undefined : undefined;
+    integer?: C extends NumberConstructor ? boolean | undefined : undefined;
+    minLength?: C extends StringConstructor ? number | undefined : undefined;
+    maxLength?: C extends StringConstructor ? number | undefined : undefined;
+    pattern?: C extends StringConstructor ? RegExp | undefined : undefined;
+    choices?: readonly T[] | undefined;
+    validate?: EnvValidator<InferSchemaType<C>> | undefined;
+    sensitive?: boolean | undefined;
 };
 
+type SchemaPrimitive<T> = unknown extends T ? EnvValue : T;
+type SchemaItemFor<C extends SchemaType, T> = [T] extends [never] ? never : SchemaItem<C, T>;
+
 /** keeps field values and callback inputs aligned with their constructor */
-type EnvSchemaItem<T = unknown> = unknown extends T
-    ? SchemaItem<StringConstructor, string> | SchemaItem<NumberConstructor, number> | SchemaItem<BooleanConstructor, boolean>
-    : T extends string ? SchemaItem<StringConstructor, T>
-    : T extends number ? SchemaItem<NumberConstructor, T>
-    : T extends boolean ? SchemaItem<BooleanConstructor, T>
-    : never;
+type EnvSchemaItem<T = unknown> = SchemaItemFor<StringConstructor, Extract<SchemaPrimitive<T>, string>>
+    | SchemaItemFor<NumberConstructor, Extract<SchemaPrimitive<T>, number>>
+    | SchemaItemFor<BooleanConstructor, Extract<SchemaPrimitive<T>, boolean>>;
 
 type EnvSchema = Record<string, SchemaType | EnvSchemaItem>;
 
@@ -55,7 +55,7 @@ type InferType<T> = T extends { type: infer C }
 
 /** includes undefined for optional fields without a defined default */
 type ValidatedEnv<T extends EnvSchema> = {
-    [K in keyof T]: InferType<T[K]>
+    -readonly [K in keyof T]: InferType<T[K]>
 };
 
 export type { ValidatedEnv, EnvSchema, EnvSchemaItem, SchemaType, EnvValue, EnvValidator, EnvSourceOptions };
