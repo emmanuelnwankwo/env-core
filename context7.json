@@ -13,9 +13,5 @@
     "Validation callbacks are synchronous and run after built-in checks. Defaults are checked too; missing optional fields skip callbacks.",
     "Report issue codes and keys without values or custom messages. sensitive: true suppresses custom error messages; successful values are unchanged.",
     "CLI JavaScript schemas work on Node 16+. Direct TypeScript schemas require Node 22.18+ native type stripping and erasable syntax. Use repeated --file flags for layers."
-  ],
-  "previousVersions": [
-    { "tag": "v1.2.0" },
-    { "tag": "v1.1.2" }
   ]
 }
