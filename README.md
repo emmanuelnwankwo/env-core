@@ -90,6 +90,20 @@ Set `strict: true` on a Number field to accept only finite numbers or decimal st
 
 Boolean fields, with or without `strict: true`, accept only typed booleans and the exact strings `'true'` and `'false'`; `0`, `1`, case variants, and whitespace are invalid. Missing fields continue to follow `required` and `default`; String fields accept empty strings and do not support `strict`.
 
+### Constraints
+
+Constraints run after conversion and also apply to defaults, even when input is present. Missing optional fields are skipped. Invalid definitions, contradictory bounds, and defaults that violate constraints produce `invalid_schema` issues.
+
+| Option | Applies to | Behavior |
+| --- | --- | --- |
+| `min`, `max` | Number | Inclusive finite bounds; constrained values must be finite |
+| `integer: true` | Number | Requires a safe integer |
+| `minLength`, `maxLength` | String | Inclusive nonnegative integer bounds on JavaScript string length (UTF-16 code units) |
+| `pattern` | String | A RegExp; caller state is preserved, including global/sticky patterns |
+| `choices` | Any field | A nonempty readonly array matching the field's primitive type; compares converted values |
+
+For example: `{ PORT: { type: Number, strict: true, integer: true, min: 1, max: 65535 }, MODE: { type: String, choices: ['dev', 'prod'] } }`.
+
 ## Usage Examples
 
 ### Express.js
@@ -160,6 +174,8 @@ The package root also exports the types `EnvSchema`, `EnvSchemaItem<T>`, and `Va
 
 ## Error Handling
 Validation failures throw the exported `EnvValidationError`, which extends `Error`. Its readonly `issues` array contains `{ code, key?, message }` entries without input values. Codes are `invalid_schema`, `invalid_config`, `missing_required`, `invalid_type`, and `invalid_value` (strict numeric parsing); root errors have no field key. File-loading errors remain separate errors with their native `cause`.
+
+Constraint failures use `too_small`, `too_big`, `not_integer`, `invalid_pattern`, and `invalid_choice`. Numeric constraints also use `invalid_value` for non-finite numbers. Messages do not include the input, pattern, or allowed choices.
 
 If validation fails, the package throws an error with detailed information, including:
 - Missing required environment variables

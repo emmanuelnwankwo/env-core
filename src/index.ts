@@ -3,6 +3,8 @@ import path from 'node:path';
 import dotenv from 'dotenv';
 import { displayKey, EnvValidationError } from './errors.ts';
 import type { EnvIssue } from './errors.ts';
+import { checkConstraints, normalizeConstraints } from './constraints.ts';
+import type { Constraints } from './constraints.ts';
 import type { EnvSchema, EnvValue, SchemaType, ValidatedEnv } from './types.ts';
 
 interface NormalizedItem {
@@ -10,6 +12,7 @@ interface NormalizedItem {
     required: boolean;
     default: EnvValue | undefined;
     strict: boolean;
+    constraints: Constraints | undefined;
 }
 
 const decimal = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?(?![\s\S])/;
@@ -71,11 +74,23 @@ function normalizeItem(key: string, value: unknown, issues: EnvIssue[]): Normali
         issues.push({ code: 'invalid_schema', key, message: `${displayKey(key)} has an invalid default` });
         return;
     }
+    const before = issues.length;
+    const constraints = normalizeConstraints(key, item, type, issues);
+    if (issues.length !== before) return;
+    if (fallback !== undefined && constraints) {
+        const defaultIssues: EnvIssue[] = [];
+        checkConstraints(key, fallback as EnvValue, constraints, defaultIssues);
+        if (defaultIssues.length) {
+            issues.push({ code: 'invalid_schema', key, message: `${displayKey(key)} has an invalid default` });
+            return;
+        }
+    }
     return {
         type,
         required: required === true || (required !== false && fallback === undefined),
         default: fallback,
         strict: strict === true,
+        constraints,
     };
 }
 
@@ -114,6 +129,8 @@ function convertValue(key: string, value: unknown, item: NormalizedItem, issues:
  *                     or an object with `type`, `required`, `default`, and optional `strict` properties.
  *                     Number fields with `strict: true` accept finite decimal/exponent values without whitespace.
  *                     Boolean fields accept typed booleans or exactly 'true'/'false'; coercion is never used.
+ *                     Number constraints: `min`, `max`, `integer`; String constraints: `minLength`, `maxLength`, `pattern`.
+ *                     `choices` applies to any field; constraints also validate defaults.
  * @param {string} [envFile] - The environment file to load. Defaults to an optional '.env' file.
  *                            Existing process values take precedence; process.env is never modified.
  *
@@ -139,6 +156,8 @@ function validateEnv<T extends EnvSchema>(schema: T, envFile?: string): Validate
  *                     or an object with `type`, `required`, `default`, and optional `strict` properties.
  *                     Number fields with `strict: true` accept finite decimal/exponent values without whitespace.
  *                     Boolean fields accept typed booleans or exactly 'true'/'false'; coercion is never used.
+ *                     Number constraints: `min`, `max`, `integer`; String constraints: `minLength`, `maxLength`, `pattern`.
+ *                     `choices` applies to any field; constraints also validate defaults.
  * @param {Record<string, unknown>} config - The sole configuration source; no files or process values are merged.
  *                                          Values may be strings or already typed numbers and booleans.
  * @param {string} [envFile] - Retained for compatibility and ignored when config is supplied.
@@ -178,6 +197,11 @@ function validateEnv<T extends EnvSchema>(schema: T, configOrEnvFile?: Record<st
             validated = convertValue(key, value, item, issues);
         }
         if (validated !== undefined) {
+            if (value !== undefined) {
+                const before = issues.length;
+                checkConstraints(key, validated, item.constraints, issues);
+                if (issues.length !== before) continue;
+            }
             Object.defineProperty(result, key, { value: validated, enumerable: true, writable: true, configurable: true });
         }
     }
