@@ -19,6 +19,8 @@ npm install env-core
 
 The JSR package is [`@nec/env-core`](https://jsr.io/@nec/env-core).
 
+For the upcoming major version, see the [v2.0 migration guide](https://github.com/emmanuelnwankwo/env-core/blob/main/MIGRATION.md).
+
 From 1.3.0, ESM imports use a native `.mjs` entry with matching declarations. It shares the CommonJS runtime, so functions and `EnvValidationError` retain their identity when both module formats are used together.
 
 ## Quickstart
