@@ -2,6 +2,12 @@ type SchemaType = StringConstructor | NumberConstructor | BooleanConstructor;
 type EnvValue = string | number | boolean;
 type EnvValidator<T extends EnvValue> = (value: T) => boolean | string;
 
+interface EnvSourceOptions {
+    readonly files: readonly string[];
+    readonly override?: boolean;
+    readonly processEnv?: Record<string, unknown>;
+}
+
 type SchemaItem<C extends SchemaType, T> = {
     type: C;
     required?: boolean;
@@ -48,4 +54,4 @@ type ValidatedEnv<T extends EnvSchema> = {
     [K in keyof T]: InferType<T[K]>
 };
 
-export type { ValidatedEnv, EnvSchema, EnvSchemaItem, SchemaType, EnvValue, EnvValidator };
+export type { ValidatedEnv, EnvSchema, EnvSchemaItem, SchemaType, EnvValue, EnvValidator, EnvSourceOptions };

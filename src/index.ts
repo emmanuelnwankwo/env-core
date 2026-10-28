@@ -6,7 +6,7 @@ import type { EnvIssue } from './errors.ts';
 import { checkConstraints, normalizeConstraints } from './constraints.ts';
 import type { Constraints } from './constraints.ts';
 import { checkCustom } from './validators.ts';
-import type { EnvSchema, EnvValue, SchemaType, ValidatedEnv, EnvValidator } from './types.ts';
+import type { EnvSchema, EnvValue, SchemaType, ValidatedEnv, EnvValidator, EnvSourceOptions } from './types.ts';
 
 interface NormalizedItem {
     type: SchemaType;
@@ -30,20 +30,47 @@ function isSchemaType(value: unknown): value is SchemaType {
     return value === String || value === Number || value === Boolean;
 }
 
-/** loads file fallbacks without mutating the process environment */
-function loadEnvFile(envFile?: unknown): Record<string, unknown> {
-    if (envFile !== undefined && typeof envFile !== 'string') throw new Error('Environment file path must be a string');
-    const envPath = path.resolve(process.cwd(), envFile ?? '.env');
-    let parsed: Record<string, string>;
+function readEnvFile(envFile: string, optional = false): Record<string, string> {
+    const envPath = path.resolve(process.cwd(), envFile);
     try {
-        parsed = dotenv.parse(fs.readFileSync(envPath));
+        return dotenv.parse(fs.readFileSync(envPath));
     } catch (error) {
         const code = isRecord(error) && typeof error.code === 'string' ? error.code : 'UNKNOWN';
-        if (envFile === undefined && code === 'ENOENT') return { ...process.env };
+        if (optional && code === 'ENOENT') return {};
         throw Object.defineProperty(new Error(`Unable to load environment file ${envPath} (${code})`),
             'cause', { value: error, configurable: true, writable: true });
     }
-    return { ...parsed, ...process.env };
+}
+
+/** loads file fallbacks without mutating the process environment */
+function loadEnvFile(envFile?: unknown): Record<string, unknown> {
+    if (envFile !== undefined && typeof envFile !== 'string') throw new Error('Environment file path must be a string');
+    return { ...readEnvFile(envFile ?? '.env', envFile === undefined), ...process.env };
+}
+
+/**
+ * loads explicit files in order without mutating process.env
+ * @param options.files file paths in precedence order; every file must be readable
+ * @param options.override lets file values replace process values; defaults to false
+ * @param options.processEnv process source; defaults to process.env, or pass {} for files only
+ * @returns a fresh record with later files taking precedence over earlier files
+ * @example validateEnv(schema, loadEnv({ files: ['.env', '.env.local'] }))
+ */
+function loadEnv(options: EnvSourceOptions): Record<string, unknown> {
+    if (!isRecord(options) || !Array.isArray(options.files) ||
+        (options.override !== undefined && typeof options.override !== 'boolean') ||
+        (options.processEnv !== undefined && !isRecord(options.processEnv))) {
+        throw new TypeError('Invalid environment source options');
+    }
+    for (const file of options.files) {
+        if (typeof file !== 'string' || !file.length) throw new TypeError('Environment file paths must be nonempty strings');
+    }
+    const source = Object.create(null) as Record<string, unknown>;
+    const base = options.processEnv ?? process.env;
+    if (options.override) Object.assign(source, base);
+    for (const file of options.files) Object.assign(source, readEnvFile(file));
+    if (!options.override) Object.assign(source, base);
+    return source;
 }
 
 /** checks defaults without coercing their declared primitive type */
@@ -235,7 +262,7 @@ function validateEnv<T extends EnvSchema>(schema: T, configOrEnvFile?: Record<st
     return result as ValidatedEnv<T>;
 }
 
-export { validateEnv };
+export { validateEnv, loadEnv };
 export { EnvValidationError } from './errors.ts';
 export type { EnvIssue, EnvIssueCode } from './errors.ts';
-export type { ValidatedEnv, EnvSchema, EnvSchemaItem, EnvValidator } from './types.ts';
+export type { ValidatedEnv, EnvSchema, EnvSchemaItem, EnvValidator, EnvSourceOptions } from './types.ts';

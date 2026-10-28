@@ -3,11 +3,70 @@ import path from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { validateEnv } from '../src/index';
-import type { EnvSchema } from '../src/types';
+import { loadEnv, validateEnv } from '../src/index';
+import type { EnvSchema, EnvSourceOptions } from '../src/types';
 
 const originalEnv = process.env;
 const fixtures: string[] = [];
+
+describe('explicit file layers', () => {
+    it('applies ordered layers and process precedence without modifying any source', () => {
+        const first = file('PORT=1000\nONLY_FIRST=first\nEMPTY=base');
+        const second = file('PORT=2000\nONLY_SECOND=second\nEMPTY=');
+        process.env = { PORT: '3000', PROCESS_ONLY: 'process' };
+        const options = { files: [first, second] };
+        expect(loadEnv(options)).toEqual({ PORT: '3000', ONLY_FIRST: 'first', ONLY_SECOND: 'second', EMPTY: '', PROCESS_ONLY: 'process' });
+        expect(validateEnv({ PORT: Number }, loadEnv({ ...options, override: true }))).toEqual({ PORT: 2000 });
+        expect(loadEnv({ files: [second, first], override: true }).PORT).toBe('1000');
+        expect(process.env).toEqual({ PORT: '3000', PROCESS_ONLY: 'process' });
+        expect(options.files).toEqual([first, second]);
+        expect(fs.readFileSync(first, 'utf8')).toContain('PORT=1000');
+    });
+
+    it('supports isolated typed sources and safe own keys in a fresh snapshot', () => {
+        const base = JSON.parse('{"__proto__":"safe","COUNT":0,"ENABLED":false}') as Record<string, unknown>;
+        Object.setPrototypeOf(base, { INHERITED: 'ignored' });
+        const source = loadEnv({ files: [], processEnv: base });
+        expect(Object.getPrototypeOf(source)).toBeNull();
+        expect(Object.prototype.hasOwnProperty.call(source, '__proto__')).toBe(true);
+        expect(source.INHERITED).toBeUndefined();
+        expect(validateEnv({ COUNT: Number, ENABLED: Boolean }, source)).toEqual({ COUNT: 0, ENABLED: false });
+        base.COUNT = 1;
+        expect(source.COUNT).toBe(0);
+        process.env.PORT = '9000';
+        expect(loadEnv({ files: [], processEnv: {} })).toEqual({});
+    });
+
+    it('reads relative paths explicitly and does not implicitly load .env', () => {
+        fs.writeFileSync(path.join(process.cwd(), '.env'), 'PORT=1000');
+        expect(loadEnv({ files: [], processEnv: {} })).toEqual({});
+        expect(loadEnv({ files: ['.env'], processEnv: {} })).toEqual({ PORT: '1000' });
+    });
+
+    it('rejects malformed options before reading any files', () => {
+        const read = jest.spyOn(fs, 'readFileSync');
+        for (const options of [null, [], {}, { files: '.env' }, { files: ['.env', ''] }, { files: [null] },
+            { files: Array(1) }, { files: [], override: 'yes' }, { files: [], processEnv: null }, { files: [], processEnv: [] }]) {
+            expect(() => loadEnv(options as unknown as EnvSourceOptions)).toThrow(TypeError);
+        }
+        expect(read).not.toHaveBeenCalled();
+    });
+
+    it('fails explicit missing and unreadable layers with the original cause', () => {
+        const first = file('PORT=1000');
+        expect(() => loadEnv({ files: [first, path.join(process.cwd(), 'missing')] })).toThrow('ENOENT');
+        const cause = Object.assign(new Error('private contents'), { code: 'EACCES' });
+        jest.spyOn(fs, 'readFileSync').mockImplementation(() => { throw cause; });
+        try {
+            loadEnv({ files: [first] });
+            throw new Error('expected load failure');
+        } catch (error) {
+            expect(error).toHaveProperty('cause', cause);
+            expect((error as Error).message).not.toContain('private contents');
+        }
+        expect(process.env).toEqual({});
+    });
+});
 
 function directory(): string {
     const result = fs.mkdtempSync(path.join(tmpdir(), 'env-core-validation-'));
