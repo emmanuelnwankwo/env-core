@@ -40,7 +40,7 @@ export function verifyConsumer(manager: string, archive: string, targetNode = pr
             run(process.execPath, [yarn as string, 'add', ...(manager === 'yarn-classic' ? ['--ignore-scripts', '--non-interactive', '--registry', 'https://registry.npmjs.org'] : []), archive]);
         }
         const source = `import { strict as assert } from 'node:assert';
-import { EnvValidationError, loadEnv, validateEnv } from 'env-core';
+import { EnvValidationError, generateEnvExample, loadEnv, validateEnv } from 'env-core';
 import type { EnvSchema, EnvSourceOptions, ValidatedEnv } from 'env-core';
 const schema = { PORT: Number, DEBUG: { type: Boolean, default: false }, LABEL: { type: String, required: false } } satisfies EnvSchema;
 process.env.PORT = '9000';
@@ -59,6 +59,7 @@ assert.equal(port, 3210);
 assert.equal(debug, false);
 assert.equal(label, undefined);
 assert.equal(process.env.PORT, '9000');
+assert.equal(generateEnvExample({ TOKEN: { type: String, default: 'PRIVATE_TOKEN' } }), 'TOKEN=\\n');
 const sourceOptions: EnvSourceOptions = { files: [], processEnv: { PORT: '3210' } };
 assert.equal(validateEnv({ PORT: Number }, loadEnv(sourceOptions)).PORT, 3210);
 assert.throws(() => validateEnv({ PORT: Number }, { PORT: 'invalid' }), EnvValidationError);

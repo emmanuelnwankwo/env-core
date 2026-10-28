@@ -19,6 +19,7 @@ interface NormalizedItem {
 }
 
 const decimal = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?(?![\s\S])/;
+const templateKey = /^[A-Za-z_][A-Za-z0-9_]*(?![\s\S])/;
 
 const hasOwn = (value: object, key: PropertyKey): boolean => Object.prototype.hasOwnProperty.call(value, key);
 
@@ -71,6 +72,27 @@ function loadEnv(options: EnvSourceOptions): Record<string, unknown> {
     for (const file of options.files) Object.assign(source, readEnvFile(file));
     if (!options.override) Object.assign(source, base);
     return source;
+}
+
+/**
+ * generates blank assignments without reading field definitions or environment values
+ * @param schema field names must be portable identifiers: letters, digits and underscores, starting with a letter or underscore
+ * @returns ordered KEY= lines with a trailing newline, or an empty string for an empty schema
+ * @throws EnvValidationError for invalid schema objects or unrepresentable keys
+ */
+function generateEnvExample(schema: EnvSchema): string {
+    if (!isRecord(schema) || Object.getOwnPropertySymbols(schema).length) {
+        throw new EnvValidationError([{ code: 'invalid_schema', message: 'Environment template schema must be an object with string keys' }]);
+    }
+    const keys = Object.getOwnPropertyNames(schema);
+    const issues: EnvIssue[] = [];
+    for (const key of keys) {
+        if (!templateKey.test(key)) {
+            issues.push({ code: 'invalid_schema', key, message: `${displayKey(key)} cannot be represented in an environment template` });
+        }
+    }
+    if (issues.length) throw new EnvValidationError(issues);
+    return keys.length ? `${keys.join('=\n')}=\n` : '';
 }
 
 /** checks defaults without coercing their declared primitive type */
@@ -262,7 +284,7 @@ function validateEnv<T extends EnvSchema>(schema: T, configOrEnvFile?: Record<st
     return result as ValidatedEnv<T>;
 }
 
-export { validateEnv, loadEnv };
+export { validateEnv, loadEnv, generateEnvExample };
 export { EnvValidationError } from './errors.ts';
 export type { EnvIssue, EnvIssueCode } from './errors.ts';
 export type { ValidatedEnv, EnvSchema, EnvSchemaItem, EnvValidator, EnvSourceOptions } from './types.ts';
