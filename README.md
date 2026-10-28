@@ -192,6 +192,22 @@ If the validation fails, NestJS will not initialize, and a descriptive error mes
 
 Without `config`, existing process values take precedence over file values. A missing default `.env` is allowed; missing explicit files and file read errors throw. Validation leaves `process.env` unchanged.
 
+### File layering
+
+Use `loadEnv` to select explicit sources, then pass its result to `validateEnv`:
+
+```typescript
+import { loadEnv, validateEnv } from 'env-core';
+
+const env = validateEnv({ PORT: Number }, loadEnv({
+  files: ['.env', '.env.local'],
+}));
+```
+
+Files load in order; later files win. Process values win by default; `override: true` lets file values win instead. Every listed file must be readable, including `.env` when explicitly listed. Relative paths resolve from the current working directory. No files load implicitly through `loadEnv`; `files: []` snapshots only the process source.
+
+`processEnv` supplies an alternative source, including typed values; pass `{}` for files only. The result is a fresh record with no prototype. Sources and `process.env` remain unchanged. The root exports the `EnvSourceOptions` type. Existing `validateEnv` overloads keep their source behavior.
+
 #### Returns
 The validated configuration object, containing schema fields only. Missing optional fields are omitted and their inferred types include `undefined`. If validation fails, an error is thrown.
 
