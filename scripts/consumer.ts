@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -61,7 +61,12 @@ assert.equal(label, undefined);
 assert.equal(process.env.PORT, '9000');
 assert.throws(() => validateEnv({ PORT: Number }, { PORT: 'invalid' }), EnvValidationError);
 `;
-        for (const extension of ['cts', 'mts']) writeFileSync(path.join(directory, `index.${extension}`), source);
+        for (const extension of ['cts', 'mts']) writeFileSync(path.join(directory, `index.${extension}`), source + (extension === 'mts' ? `
+const { createRequire } = await import('node:module');
+const common = createRequire(import.meta.url)('env-core');
+assert.equal(common.validateEnv, validateEnv);
+assert.equal(common.EnvValidationError, EnvValidationError);
+` : ''));
         if (manager !== 'yarn-modern') {
             writeFileSync(path.join(directory, 'tsconfig.json'), JSON.stringify({
                 compilerOptions: {
@@ -74,7 +79,7 @@ assert.throws(() => validateEnv({ PORT: Number }, { PORT: 'invalid' }), EnvValid
             }
         } else {
             for (const extension of ['cts', 'mts']) {
-                const result = ts.transpileModule(source, {
+                const result = ts.transpileModule(readFileSync(path.join(directory, `index.${extension}`), 'utf8'), {
                     fileName: `index.${extension}`,
                     compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.Node16 },
                 });

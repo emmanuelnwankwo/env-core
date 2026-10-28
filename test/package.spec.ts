@@ -34,7 +34,7 @@ describe('packed package', () => {
         run('pnpm', ['pack', '--pack-destination', 'packed'], directory);
         const archive = path.join(directory, 'packed', readdirSync(path.join(directory, 'packed'))[0]);
         const files = run('tar', ['-tf', archive], directory).trim().split('\n');
-        expect(files).toEqual(expect.arrayContaining(['package/dist/index.js', 'package/dist/index.d.ts']));
+        expect(files).toEqual(expect.arrayContaining(['package/dist/index.js', 'package/dist/index.d.ts', 'package/dist/index.mjs', 'package/dist/index.d.mts']));
         expect(files.some(file => /(?:stale|test\/|src\/|\.env)/.test(file))).toBe(false);
 
         const consumer = path.join(directory, 'consumer');
@@ -44,10 +44,13 @@ describe('packed package', () => {
         symlinkSync('package', path.join(modules, 'env-core'), 'dir');
         symlinkSync(path.join(root, 'node_modules/dotenv'), path.join(modules, 'dotenv'), 'dir');
         const manifest = JSON.parse(readFileSync(path.join(modules, 'package/package.json'), 'utf8')) as {
-            exports: Record<string, string>;
+            exports: { import: { types: string; default: string }; require: { types: string; default: string } };
         };
-        expect(manifest.exports.import).toMatch(/\.js$/);
-        expect(manifest.exports.types).toMatch(/\.d\.ts$/);
+        expect(manifest.exports.import).toEqual({ types: './dist/index.d.mts', default: './dist/index.mjs' });
+        expect(manifest.exports.require).toEqual({ types: './dist/index.d.ts', default: './dist/index.js' });
+        const esm = readFileSync(path.join(modules, 'package/dist/index.mjs'), 'utf8');
+        expect(esm).toContain('export');
+        expect(esm).not.toContain('require(');
 
         const source = `import { strict as assert } from 'node:assert';
 import { EnvValidationError, validateEnv } from 'env-core';
@@ -79,6 +82,11 @@ export function booleanSchema(defaultValue: boolean) {
         writeFileSync(path.join(consumer, 'index.mts'), source + `
 const dynamic = await import('env-core');
 assert.equal(dynamic.validateEnv, validateEnv);
+const { createRequire } = await import('node:module');
+const common = createRequire(import.meta.url)('env-core');
+assert.equal(common.validateEnv, validateEnv);
+assert.equal(common.EnvValidationError, EnvValidationError);
+assert.equal(dynamic.default, common);
 `);
         writeFileSync(path.join(consumer, 'tsconfig.json'), JSON.stringify({
             compilerOptions: {

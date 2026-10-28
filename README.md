@@ -17,6 +17,8 @@
 npm install env-core
 ```
 
+ESM imports use a native `.mjs` entry with matching declarations. It shares the CommonJS runtime, so functions and `EnvValidationError` retain their identity when both module formats are used together.
+
 ## Usage
 ### Define the Environment Schema
 First, define a schema for your environment variables. Here are three different use cases for how you can set up your `envSchema`:
