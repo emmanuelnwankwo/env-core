@@ -1,0 +1,21 @@
+{
+  "$schema": "https://context7.com/schema/context7.json",
+  "projectTitle": "env-core",
+  "description": "Type-safe Node.js environment validation with validateEnv. npm: env-core; JSR: @nec/env-core. Primitive schemas, structured failures and synchronous validation.",
+  "folders": [],
+  "excludeFolders": ["src", "test", "scripts", ".github", "dist", "coverage", "node_modules"],
+  "excludeFiles": ["AGENTS.md", "ROADMAP.md", "REVIEW_FINDINGS.md", "LICENSE"],
+  "rules": [
+    "npm env-core and JSR @nec/env-core expose validateEnv. Use the installed release's documentation; loadEnv, generateEnvExample and CLI commands require 1.3.0 or later.",
+    "An explicit configuration object passed to validateEnv is the sole source. Validation never modifies process.env.",
+    "Without a config object, process values override file fallbacks. loadEnv reads explicit files in order; later files win. Its override: true option lets files override process values.",
+    "Number coercion is unchanged unless strict: true is selected. Boolean fields accept typed booleans or the exact strings true and false.",
+    "Validation callbacks are synchronous and run after built-in checks. Defaults are checked too; missing optional fields skip callbacks.",
+    "Report issue codes and keys without values or custom messages. sensitive: true suppresses custom error messages; successful values are unchanged.",
+    "CLI JavaScript schemas work on Node 16+. Direct TypeScript schemas require Node 22.18+ native type stripping and erasable syntax. Use repeated --file flags for layers."
+  ],
+  "previousVersions": [
+    { "tag": "v1.2.0" },
+    { "tag": "v1.1.2" }
+  ]
+}
