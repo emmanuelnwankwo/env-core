@@ -3,7 +3,7 @@ import { cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, stat
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from '@jest/globals';
-import { consumerEnvironment } from '../scripts/consumer';
+import { consumerEnvironment, quickstartConsumer } from '../scripts/consumer';
 
 const root = path.resolve(__dirname, '..');
 const fixtures: string[] = [];
@@ -93,6 +93,8 @@ assert.equal(common.EnvValidationError, EnvValidationError);
 assert.equal(dynamic.default, common);
 assert.ok(!Object.keys(createRequire(import.meta.url).cache).some(filename => filename.endsWith('/dist/cli.js')));
 `);
+        const quickstart = quickstartConsumer(readFileSync(path.join(modules, 'package/README.md'), 'utf8'));
+        for (const extension of ['cts', 'mts']) writeFileSync(path.join(consumer, `quickstart.${extension}`), quickstart);
         const schemaSource = `import type { EnvSchema } from 'env-core';
 const schema = { PACK_PORT: { type: Number, choices: [3000], default: 3000 } } satisfies EnvSchema;
 `;
@@ -119,6 +121,7 @@ const schema = { PACK_PORT: { type: Number, choices: [3000], default: 3000 } } s
             run(process.execPath, [compiler, '-p', '.', '--module', mode, '--moduleResolution', mode, '--outDir', mode], consumer);
             for (const extension of ['cjs', 'mjs']) {
                 run(process.execPath, [path.join(mode, `index.${extension}`)], consumer);
+                run(process.execPath, [path.join(mode, `quickstart.${extension}`)], consumer);
                 expect(JSON.parse(run(process.execPath, [cli, 'check', '--schema', path.join(mode, `schema.${extension}`),
                     '--file', envFile, '--no-process-env', '--json'], consumer))).toEqual({ success: true });
             }

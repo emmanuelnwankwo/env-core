@@ -17,7 +17,43 @@
 npm install env-core
 ```
 
-ESM imports use a native `.mjs` entry with matching declarations. It shares the CommonJS runtime, so functions and `EnvValidationError` retain their identity when both module formats are used together.
+The JSR package is [`@nec/env-core`](https://jsr.io/@nec/env-core).
+
+From 1.3.0, ESM imports use a native `.mjs` entry with matching declarations. It shares the CommonJS runtime, so functions and `EnvValidationError` retain their identity when both module formats are used together.
+
+## Quickstart
+
+Save this as `env.mts`. With Node 22.18+, run `node env.mts` after installation; on older Node versions, compile it with your project's TypeScript setup first.
+
+```typescript
+import { EnvValidationError, validateEnv } from 'env-core';
+
+const schema = {
+  PORT: { type: Number, strict: true, integer: true, min: 1, max: 65535 },
+  DEBUG: { type: Boolean, default: false },
+  API_TOKEN: { type: String, minLength: 1, sensitive: true },
+} as const;
+
+export function readConfig(config: Record<string, unknown>) {
+  try {
+    return validateEnv(schema, config);
+  } catch (error) {
+    if (error instanceof EnvValidationError) {
+      const issues = error.issues.map(({ code, key }) => ({ code, key }));
+      throw new Error('Invalid environment configuration: ' + JSON.stringify(issues));
+    }
+    throw error;
+  }
+}
+
+const env = readConfig({ PORT: '3000', API_TOKEN: 'example-only' });
+const port: number = env.PORT;
+const debug: boolean = env.DEBUG;
+```
+
+The example returns typed values and reports only error codes and field names on failure. At application startup, replace the sample object with `readConfig(process.env)`. An explicit object is the sole source; it does not load files or modify `process.env`. For file fallbacks, call `validateEnv(schema)` instead: existing process values win over an optional `.env` file.
+
+See [file layering](#file-layering), [safe templates](#environment-templates), [CLI commands](#cli), and the [Express](#expressjs)/[NestJS](#nestjs) examples for other entry points.
 
 ## Usage
 ### Define the Environment Schema
@@ -199,6 +235,8 @@ The package root also exports the types `EnvSchema`, `EnvSchemaItem<T>`, and `Va
 
 ### File layering
 
+Requires 1.3.0 or later.
+
 Use `loadEnv` to select explicit sources, then pass its result to `validateEnv`:
 
 ```typescript
@@ -215,11 +253,15 @@ Files load in order; later files win. Process values win by default; `override: 
 
 ### Environment templates
 
+Requires 1.3.0 or later.
+
 `generateEnvExample(schema)` returns a string of blank assignments such as `PORT=\nTOKEN=\n`, ready to save as `.env.example`. It includes own string field names in schema order, including non-enumerable fields. It never reads field definitions, defaults, current values, or validator callbacks, so even unmarked secret defaults are omitted.
 
 Names must start with a letter or underscore and contain only letters, digits, and underscores. Invalid names and symbol keys throw `EnvValidationError`; an empty schema produces an empty string. Nonempty output ends with a newline. This function lists names; `validateEnv` checks field definitions and values.
 
 ### CLI
+
+Requires 1.3.0 or later.
 
 Export a schema as a module default or named `envSchema` export. For CommonJS, use `module.exports = schema`.
 

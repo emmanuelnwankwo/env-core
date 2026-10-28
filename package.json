@@ -1,7 +1,7 @@
 {
   "name": "env-core",
   "version": "1.2.0",
-  "description": "Library for validating and accessing environment variables.",
+  "description": "Lightweight, type-safe environment variable validation for Node.js and TypeScript.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
@@ -42,7 +42,13 @@
     "express",
     "nestjs",
     "process.env",
-    "environment"
+    "environment",
+    "typescript",
+    "type-safe",
+    "environment-variables",
+    "environment-validation",
+    "configuration",
+    "dotenv"
   ],
   "files": [
     "dist",

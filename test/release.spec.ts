@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, expect, it } from '@jest/globals';
 import { artifactMetadata, assertReleaseRef, npmPublishNeeded, releaseVersion, verifyMetadata } from '../scripts/release';
-import { consumerEnvironment, consumerManager } from '../scripts/consumer';
+import { consumerEnvironment, consumerManager, readmeQuickstart } from '../scripts/consumer';
 
 const fixtures: string[] = [];
 const npm = { name: 'env-core', version: '1.1.2' };
@@ -71,4 +71,11 @@ it('runs only named consumers without inherited runtime augmentation', () => {
     expect(() => consumerManager(undefined)).toThrow('unknown consumer');
     expect(consumerEnvironment({ PATH: '/bin', NODE_OPTIONS: '--require hook', NODE_PATH: '/root', NUB_RUNTIME: '1' }))
         .toEqual({ PATH: '/bin' });
+});
+
+it('requires a quickstart code block inside its own README section', () => {
+    for (const readme of ['', '## Other\n```typescript\nwrong\n```',
+        '\n## Quickstart\nNo example\n## Other\n```typescript\nwrong\n```']) {
+        expect(() => readmeQuickstart(readme)).toThrow('complete TypeScript quickstart');
+    }
 });

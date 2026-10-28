@@ -55,6 +55,8 @@ function loadEnvFile(envFile?: unknown): Record<string, unknown> {
  * @param options.override lets file values replace process values; defaults to false
  * @param options.processEnv process source; defaults to process.env, or pass {} for files only
  * @returns a fresh record with later files taking precedence over earlier files
+ * @throws TypeError for malformed source options
+ * @throws Error if any explicit file cannot be read
  * @example validateEnv(schema, loadEnv({ files: ['.env', '.env.local'] }))
  */
 function loadEnv(options: EnvSourceOptions): Record<string, unknown> {
@@ -79,6 +81,7 @@ function loadEnv(options: EnvSourceOptions): Record<string, unknown> {
  * @param schema field names must be portable identifiers: letters, digits and underscores, starting with a letter or underscore
  * @returns ordered KEY= lines with a trailing newline, or an empty string for an empty schema
  * @throws EnvValidationError for invalid schema objects or unrepresentable keys
+ * @example generateEnvExample({ TOKEN: { type: String, sensitive: true } })
  */
 function generateEnvExample(schema: EnvSchema): string {
     if (!isRecord(schema) || Object.getOwnPropertySymbols(schema).length) {
