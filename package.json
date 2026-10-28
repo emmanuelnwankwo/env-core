@@ -52,6 +52,10 @@
   ],
   "files": [
     "dist",
+    "!dist/cli.d.ts",
+    "!dist/constraints.d.ts",
+    "!dist/validators.d.ts",
+    "!dist/types.js",
     "README.md"
   ],
   "author": "Emmanuel Nwankwo <noblenec@gmail.com>",

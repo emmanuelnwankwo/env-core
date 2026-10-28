@@ -32,11 +32,17 @@ describe('packed package', () => {
         const directory = fixture();
         mkdirSync(path.join(directory, 'dist'));
         writeFileSync(path.join(directory, 'dist/stale.js'), '');
+        for (const file of ['AGENTS.md', 'ROADMAP.md', 'REVIEW_FINDINGS.md', 'context7.json', '.env']) {
+            writeFileSync(path.join(directory, file), 'private fixture');
+        }
         run('pnpm', ['pack', '--pack-destination', 'packed'], directory);
         const archive = path.join(directory, 'packed', readdirSync(path.join(directory, 'packed'))[0]);
         const files = run('tar', ['-tf', archive], directory).trim().split('\n');
-        expect(files).toEqual(expect.arrayContaining(['package/dist/index.js', 'package/dist/index.d.ts', 'package/dist/index.mjs', 'package/dist/index.d.mts']));
-        expect(files.some(file => /(?:stale|test\/|src\/|\.env)/.test(file))).toBe(false);
+        expect(files.sort()).toEqual([
+            'LICENSE', 'README.md', 'package.json',
+            ...['cli.js', 'constraints.js', 'errors.js', 'errors.d.ts', 'index.js', 'index.d.ts',
+                'index.mjs', 'index.d.mts', 'types.d.ts', 'validators.js'].map(file => `dist/${file}`),
+        ].map(file => `package/${file}`).sort());
 
         const consumer = path.join(directory, 'consumer');
         const modules = path.join(consumer, 'node_modules');
