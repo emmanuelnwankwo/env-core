@@ -1,4 +1,4 @@
-name: Runtime dependency graph
+name: Dependency vulnerability graph
 
 on:
   workflow_dispatch:
@@ -36,7 +36,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: mkdir -p .release && pnpm exec nub --no-env-file scripts/dependency-graph.ts .release/runtime-dependencies.json
-      - name: Submit resolved runtime dependencies
+      - name: Submit resolved runtime and development dependencies
         run: gh api --method POST "repos/$GITHUB_REPOSITORY/dependency-graph/snapshots" --input .release/runtime-dependencies.json
         env:
           GH_TOKEN: ${{ github.token }}
