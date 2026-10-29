@@ -1,0 +1,40 @@
+name: Runtime dependency graph
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - scripts/dependency-graph.ts
+      - .github/workflows/dependency-graph.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: runtime-dependency-graph-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  submit:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: pnpm/action-setup@v6.1.0
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: 24.x
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: mkdir -p .release && pnpm exec nub --no-env-file scripts/dependency-graph.ts .release/runtime-dependencies.json
+      - name: Submit resolved runtime dependencies
+        run: gh api --method POST "repos/$GITHUB_REPOSITORY/dependency-graph/snapshots" --input .release/runtime-dependencies.json
+        env:
+          GH_TOKEN: ${{ github.token }}
