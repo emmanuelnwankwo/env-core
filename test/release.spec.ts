@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, expect, it } from '@jest/globals';
-import { artifactMetadata, assertReleaseRef, npmPublishNeeded, releaseVersion, verifyMetadata } from '../scripts/release';
+import { artifactMetadata, assertReleaseRef, npmPublishNeeded, registryVersion, releaseVersion, verifyMetadata } from '../scripts/release';
 import { consumerEnvironment, consumerManager, readmeQuickstart } from '../scripts/consumer';
 
 const fixtures: string[] = [];
@@ -26,6 +26,15 @@ it('requires matching stable versions and an explicit main release', () => {
     ] as const) expect(() => releaseVersion(left, right, expected)).toThrow();
     expect(() => { assertReleaseRef('refs/heads/feature', '1.1.2'); }).toThrow('main');
     expect(() => { assertReleaseRef('refs/heads/main', ''); }).toThrow('explicit version');
+});
+
+it('uses only the explicit release input for registry checks and binds it to the verified artifact', () => {
+    expect(registryVersion('2.0.0', '2.0.0')).toBe('2.0.0');
+    for (const value of [undefined, '', ' 2.0.0', 'v2.0.0', '02.0.0', '2.0.0-beta', '2.0.0/secret', 'https://example.com']) {
+        expect(() => registryVersion(value, '2.0.0')).toThrow('explicit stable release version');
+    }
+    expect(() => registryVersion('2.0.1', '2.0.0')).toThrow('does not match');
+    expect(() => registryVersion('2.0.0', 'PRIVATE_FILE_CONTENT')).toThrow('does not match');
 });
 
 it('binds package contents, version, bytes and source commit before publishing or retrying', () => {

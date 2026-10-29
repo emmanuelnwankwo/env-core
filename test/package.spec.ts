@@ -1,6 +1,7 @@
 import { execFileSync, spawnSync } from 'node:child_process';
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
+import { closeSync, cpSync, fstatSync, mkdirSync, mkdtempSync, openSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from '@jest/globals';
 import { consumerEnvironment, quickstartConsumer } from '../scripts/consumer';
@@ -25,6 +26,29 @@ function run(command: string, args: string[], cwd: string): string {
 
 afterEach(() => {
     for (const directory of fixtures.splice(0)) rmSync(directory, { recursive: true, force: true });
+});
+
+it('prevents prototype poisoning in the merge implementation actually loaded by Jest', () => {
+    const fromJest = createRequire(require.resolve('jest/package.json'));
+    const fromCli = createRequire(fromJest.resolve('jest-cli'));
+    const merge = createRequire(fromCli.resolve('jest-config'))('deepmerge') as {
+        (target: unknown, source: unknown): Record<string, unknown>;
+        all(values: unknown[]): Record<string, unknown>;
+    };
+    const payload: Record<string, unknown> = JSON.parse('{"__proto__":{"admin":true}}');
+    const nested = { session: payload };
+    for (const result of [merge(Object.create(null), payload), merge(payload, {}),
+        merge({ session: null }, nested).session, merge({ session: undefined }, nested).session,
+        merge.all([{ session: null }, nested]).session]) {
+        const object = result as Record<string, unknown>;
+        expect([null, Object.prototype]).toContain(Object.getPrototypeOf(object));
+        expect(object.admin).toBeUndefined();
+    }
+    expect(Object.prototype).not.toHaveProperty('admin');
+    const pattern = /test/;
+    expect(merge.all([{ globals: { first: 1 }, values: [1], pattern }, { globals: { second: 2 }, values: [2] }]))
+        .toEqual({ globals: { first: 1, second: 2 }, values: [1, 2], pattern });
+    expect(merge({ pattern }, {}).pattern).toBe(pattern);
 });
 
 describe('packed package', () => {
@@ -59,8 +83,13 @@ describe('packed package', () => {
         expect(esm).toContain('export');
         expect(esm).not.toContain('require(');
         const cli = path.join(modules, 'package/dist/cli.js');
-        expect(statSync(cli).mode & 0o111).not.toBe(0);
-        expect(readFileSync(cli, 'utf8')).toMatch(/^#!\/usr\/bin\/env node\n/);
+        const cliFile = openSync(cli, 'r');
+        try {
+            expect(fstatSync(cliFile).mode & 0o111).not.toBe(0);
+            expect(readFileSync(cliFile, 'utf8')).toMatch(/^#!\/usr\/bin\/env node\n/);
+        } finally {
+            closeSync(cliFile);
+        }
 
         const source = `import { strict as assert } from 'node:assert';
 import { EnvValidationError, validateEnv } from 'env-core';
