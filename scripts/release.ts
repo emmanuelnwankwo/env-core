@@ -68,6 +68,12 @@ export function npmPublishNeeded(metadata: ArtifactMetadata, published?: { dist?
     return false;
 }
 
+export function registryVersion(input: string | undefined, artifactVersion: string): string {
+    assert.ok(input && /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(input), 'registry checks require an explicit stable release version');
+    assert.equal(input, artifactVersion, 'registry release input does not match the verified artifact');
+    return input;
+}
+
 async function npmVersion(version: string): Promise<{ dist?: { integrity?: string } } | undefined> {
     const response = await fetch(`https://registry.npmjs.org/env-core/${encodeURIComponent(version)}`);
     if (response.status === 404) return;
@@ -100,12 +106,13 @@ async function main(): Promise<void> {
     const metadata = JSON.parse(readFileSync(metadataFile, 'utf8')) as ArtifactMetadata;
     verifyMetadata(root, archive, metadata, process.env.GITHUB_SHA);
     if (command === 'verify') return;
+    const version = registryVersion(process.env.RELEASE_VERSION, metadata.version);
     if (command === 'npm-status') {
-        output({ publish: String(npmPublishNeeded(metadata, await npmVersion(metadata.version))) });
+        output({ publish: String(npmPublishNeeded(metadata, await npmVersion(version))) });
         return;
     }
     for (let attempt = 0; attempt < 12; attempt++) {
-        const published = await npmVersion(metadata.version);
+        const published = await npmVersion(version);
         if (published) {
             npmPublishNeeded(metadata, published);
             return;
