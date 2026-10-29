@@ -35,7 +35,7 @@ deno add jsr:@nec/env-core
 
 The JSR package is [`@nec/env-core`](https://jsr.io/@nec/env-core).
 
-This README describes the v2.0 contract. See the [v2.0 migration guide](https://github.com/emmanuelnwankwo/env-core/blob/main/MIGRATION.md) or the [v1.3.0 documentation](https://github.com/emmanuelnwankwo/env-core/blob/v1.3.0/README.md) when using v1.x.
+This README describes the v2.0 contract. See the [v2.0 migration guide](https://github.com/emmanuelnwankwo/env-core/blob/v2.0.0/MIGRATION.md) or the [v1.3.0 documentation](https://github.com/emmanuelnwankwo/env-core/blob/v1.3.0/README.md) when using v1.x.
 
 From 1.3.0, ESM imports use a native `.mjs` entry with matching declarations. It shares the CommonJS runtime, so functions and `EnvValidationError` retain their identity when both module formats are used together.
 
