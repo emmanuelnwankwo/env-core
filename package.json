@@ -30,6 +30,7 @@
   "scripts": {
     "build": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\" && tsc",
     "test": "jest",
+    "benchmark": "nub --no-env-file scripts/benchmark.ts",
     "lint": "eslint",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json --noEmit",
     "prepack": "pnpm run build",

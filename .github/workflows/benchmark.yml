@@ -1,0 +1,57 @@
+name: Benchmarks
+
+on:
+  workflow_dispatch:
+    inputs:
+      baseline:
+        description: 'Baseline commit or tag (default: previous commit)'
+        type: string
+        default: 'HEAD^'
+  schedule:
+    - cron: '23 6 * * 1'
+  push:
+    branches: [main]
+    paths: ['src/**', 'scripts/benchmark.ts', 'test/benchmark.spec.ts', 'package.json', 'pnpm-lock.yaml', '.github/workflows/benchmark.yml']
+  pull_request:
+    branches: [main]
+    paths: ['src/**', 'scripts/benchmark.ts', 'test/benchmark.spec.ts', 'package.json', 'pnpm-lock.yaml', '.github/workflows/benchmark.yml']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: benchmarks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v6.1.0
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: 24.x
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Prepare baseline checkout
+        env:
+          BASE_REF: ${{ inputs.baseline || github.event.pull_request.base.sha || github.event.before || 'HEAD^' }}
+        run: |
+          BASE_SHA=$(git rev-parse --verify --end-of-options "$BASE_REF^{commit}")
+          BASE_DIRECTORY="$RUNNER_TEMP/env-core-benchmark-base"
+          git worktree add --detach "$BASE_DIRECTORY" "$BASE_SHA"
+          pnpm --dir "$BASE_DIRECTORY" install --frozen-lockfile
+          echo "BENCHMARK_BASE_DIRECTORY=$BASE_DIRECTORY" >> "$GITHUB_ENV"
+      - name: Measure baseline and candidate
+        run: pnpm benchmark --baseline "$BENCHMARK_BASE_DIRECTORY"
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: benchmarks-${{ github.sha }}-${{ github.run_attempt }}
+          path: .benchmarks/results.*
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 90
