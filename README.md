@@ -20,7 +20,17 @@
 ## Installation
 
 ```sh
+# npm
 npm install env-core
+
+# pnpm
+pnpm add env-core
+
+# yarn
+yarn add env-core
+
+# deno
+deno add jsr:@nec/env-core
 ```
 
 The JSR package is [`@nec/env-core`](https://jsr.io/@nec/env-core).
