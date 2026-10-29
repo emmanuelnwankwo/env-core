@@ -12,6 +12,7 @@
 - Ask before generating new files
 - Avoid circular dependencies
 - Performance is critical - parameter reassignment is allowed for optimization
+- ALWAYS use the gh CLI to fetch GitHub information (issues, PRs, etc.) instead of relying on web search or assumptions
 - Keep JSDoc as minimal as possible. A self-explanatory type or symbol name needs no doc comment.
 - When you've modified a PR (or opened/closed/commented on one), include the PR URL liberally in summary messages — at minimum once at the end of any reply that touched it
 - When creating a PR, do not include a separate test plan section in the body. Link to any relevant issues under discussion, and use the same copywriting guidelines from "Commenting on issues and PRs": concise maintainer voice, prose over templates, and validation details only when they are material to the reader.
