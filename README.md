@@ -2,6 +2,12 @@
 
 `env-core` is a lightweight, type-safe environment variable validation library for Node.js projects.
 
+<p align="center">
+  <a href="https://github.com/emmanuelnwankwo/env-core/actions/workflows/node.js.yml?query=branch%3Amain"><img src="https://github.com/emmanuelnwankwo/env-core/actions/workflows/node.js.yml/badge.svg?event=push&amp;branch=main" alt="Tests" /></a>
+  <a href="https://www.npmjs.com/package/env-core"><img src="https://img.shields.io/npm/dw/env-core.svg" alt="Weekly npm downloads" /></a>
+  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/github/license/emmanuelnwankwo/env-core" alt="MIT license" /></a>
+</p>
+
 ## Features
 - Type-safe environment variable validation
 - Supports `String`, `Number`, and `Boolean` types
