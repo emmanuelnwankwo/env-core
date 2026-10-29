@@ -5,12 +5,31 @@ const context = { repository: 'emmanuelnwankwo/env-core', sha: 'a'.repeat(40), r
     runId: '123', scanned: '2026-10-29T00:00:00.000Z' };
 const tree = [{ dependencies: { dotenv: { version: '18.0.9' } }, devDependencies: { jest: { version: '30.5.2' } } }];
 
-it('submits resolved dotenv against the real lockfile without including development tools', () => {
+it('submits resolved runtime and development versions against the real lockfile', () => {
     const snapshot = dependencySnapshot(tree, context);
     expect(snapshot).toMatchObject({ version: 0, sha: context.sha, ref: context.ref, scanned: context.scanned,
         job: { id: '123', correlator: 'env-core-dotenv-runtime', html_url: 'https://github.com/emmanuelnwankwo/env-core/actions/runs/123' } });
     expect(snapshot.manifests['pnpm-lock.yaml']).toEqual({ name: 'pnpm-lock.yaml', file: { source_location: 'pnpm-lock.yaml' },
-        resolved: { 'pkg:npm/dotenv@18.0.9': { package_url: 'pkg:npm/dotenv@18.0.9', relationship: 'direct', scope: 'runtime', dependencies: [] } } });
+        resolved: {
+            'pkg:npm/dotenv@18.0.9': { package_url: 'pkg:npm/dotenv@18.0.9', relationship: 'direct', scope: 'runtime', dependencies: [] },
+            'pkg:npm/jest@30.5.2': { package_url: 'pkg:npm/jest@30.5.2', relationship: 'direct', scope: 'development', dependencies: [] },
+        } });
+});
+
+it('uses canonical alias names, retains optional dependencies and preserves runtime scope for shared tools', () => {
+    const snapshot = dependencySnapshot([{ dependencies: { dotenv: { version: '18.0.9', dependencies: { shared: { version: '1.0.0' } } } },
+        devDependencies: {
+            shared: { version: '1.0.0' },
+            'typescript-5': { from: 'typescript', version: '5.6.3', optionalDependencies: { '@example/compiler': { version: '1.2.3' } } },
+            'yarn-classic': { from: 'yarn', version: '1.22.22' },
+        }, optionalDependencies: { optional: { version: '1.0.0' } } }], context);
+    const nodes = snapshot.manifests['pnpm-lock.yaml'].resolved;
+    expect(nodes['pkg:npm/typescript@5.6.3']).toMatchObject({ scope: 'development', relationship: 'direct', dependencies: ['pkg:npm/%40example/compiler@1.2.3'] });
+    expect(nodes['pkg:npm/%40example/compiler@1.2.3'].scope).toBe('development');
+    expect(nodes['pkg:npm/shared@1.0.0']).toMatchObject({ scope: 'runtime', relationship: 'direct' });
+    expect(nodes['pkg:npm/optional@1.0.0'].scope).toBe('runtime');
+    expect(nodes['pkg:npm/yarn@1.22.22'].scope).toBe('development');
+    expect(nodes['pkg:npm/typescript-5@5.6.3']).toBeUndefined();
 });
 
 it('retains transitive runtime edges, scoped package names and shared nodes without looping', () => {
@@ -27,6 +46,9 @@ it('fails instead of submitting an empty, unresolved or malformed dependency gra
     for (const invalid of [null, [], [{ dependencies: {} }], [...tree, ...tree],
         [{ dependencies: { dotenv: { version: '^18.0.9' } } }],
         [{ dependencies: { dotenv: { version: '18.0.9', dependencies: [] } } }],
+        [{ dependencies: { dotenv: { version: '18.0.9', optionalDependencies: [] } } }],
+        [{ dependencies: { dotenv: { version: '18.0.9', from: '../invalid' } } }],
+        [{ dependencies: { dotenv: { version: '18.0.9' } }, devDependencies: [] }],
         [{ dependencies: { dotenv: { version: '18.0.9', dependencies: { '../invalid': { version: '1.0.0' } } } } }]]) {
         expect(() => dependencySnapshot(invalid, context)).toThrow();
     }
