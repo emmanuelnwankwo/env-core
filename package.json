@@ -83,7 +83,7 @@
     "node": ">=16.0.0"
   },
   "dependencies": {
-    "dotenv": "^18.0.9"
+    "dotenv": "^18.0.10"
   },
   "packageManager": "pnpm@12.15.0"
 }
